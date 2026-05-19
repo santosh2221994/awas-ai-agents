@@ -1,0 +1,227 @@
+
+import { Mastra } from '@mastra/core/mastra';
+import { PinoLogger } from '@mastra/loggers';
+import { LibSQLStore } from '@mastra/libsql';
+import { DuckDBStore } from "@mastra/duckdb";
+import { MastraCompositeStore } from '@mastra/core/storage';
+import {
+  Observability,
+  DefaultExporter,
+  CloudExporter,
+  SensitiveDataFilter,
+} from '@mastra/observability';
+import { MastraEditor } from '@mastra/editor';
+import { globalWorkspace } from './workspace';
+
+// ── Editor instance ───────────────────────────────────────────────────────────
+// Enables the Editor tab in Mastra Studio for all registered agents.
+// Non-developers can iterate on instructions, tools, and variables without
+// touching code. Every save creates a versioned snapshot; publish when ready.
+const editor = new MastraEditor();
+
+// ── Original example ────────────────────────────────────────────────────────
+import { weatherWorkflow } from './workflows/weather-workflow';
+import { weatherAgent } from './agents/weather-agent';
+import { toolCallAppropriatenessScorer, completenessScorer, translationScorer } from './scorers/weather-scorer';
+import { agentScorers } from './scorers/agent-scorers';
+
+// ── Template Agents ──────────────────────────────────────────────────────────
+import { deepSearchAgent } from './agents/deep-search-agent';
+import { googleSheetsAgent } from './agents/google-sheets-agent';
+import { browserAgent } from './agents/browser-agent';
+import { textToSqlAgent } from './agents/text-to-sql-agent';
+import { pdfChatAgent } from './agents/pdf-chat-agent';
+import { flashCardsAgent } from './agents/flash-cards-agent';
+import { csvQuestionsAgent } from './agents/csv-questions-agent';
+import { githubPrAgent } from './agents/github-pr-agent';
+import { docsChatbotAgent } from './agents/docs-chatbot-agent';
+import { youtubeChatAgent } from './agents/youtube-chat-agent';
+import { slackAgent } from './agents/slack-agent';
+import { customerFeedbackAgent } from './agents/customer-feedback-agent';
+import { mcpAgent } from './agents/mcp-agent';
+import { gemmaAgent } from './agents/gemma-agent';
+import { videoIdeaGenagent } from './agents/video-idea-gen0agent';
+
+// ── MCP ──────────────────────────────────────────────────────────────────────
+import { mastraMcpServer } from './mcp/server';
+
+// ── Template Workflows ───────────────────────────────────────────────────────
+import { deepSearchWorkflow } from './workflows/deep-search-workflow';
+import { customerFeedbackWorkflow } from './workflows/customer-feedback-workflow';
+
+// Initialise the DuckDB observability store. DuckDB requires native bindings;
+// if init fails (e.g. wrong Node ABI), the error is surfaced immediately with
+// a clear message rather than silently degrading to an incompatible store.
+const observabilityStore = await (async () => {
+  try {
+    return await new DuckDBStore().getStore('observability');
+  } catch (err) {
+    throw new Error(
+      `[Mastra] Failed to initialise DuckDB observability store. ` +
+      `Ensure Node >=22 and run \`npm rebuild\` if you switched Node versions. ` +
+      `Original error: ${(err as Error).message}`,
+    );
+  }
+})();
+const allAgents = {
+  weatherAgent,
+  deepSearchAgent,
+  googleSheetsAgent,
+  browserAgent,
+  textToSqlAgent,
+  pdfChatAgent,
+  flashCardsAgent,
+  csvQuestionsAgent,
+  githubPrAgent,
+  docsChatbotAgent,
+  youtubeChatAgent,
+  slackAgent,
+  customerFeedbackAgent,
+  mcpAgent,
+  gemmaAgent,
+  videoIdeaGenagent,
+};
+
+export const mastra = new Mastra({
+  // ── Middleware ─────────────────────────────────────────────────────────────
+  // Runs on every incoming HTTP request to populate the RequestContext.
+  // Values set here are available in agents, workflows, and tools via the
+  // `requestContext` argument.
+  server: {
+    host: 'localhost',
+    port: 4111,
+    // Override via env vars — useful when ngrok URL changes
+    studioHost: process.env.MASTRA_STUDIO_HOST,
+    studioProtocol: (process.env.MASTRA_STUDIO_PROTOCOL as 'http' | 'https' | undefined),
+    studioPort: Number(process.env.MASTRA_STUDIO_PORT) || undefined,
+    cors: {
+      origin: (origin: string) => origin || '*', // Reflect origin for credentialed requests
+      allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowHeaders: [
+        'Content-Type',
+        'Authorization',
+        'x-user-id',
+        'x-user-tier',
+        'x-tenant-id',
+        'x-allow-commands',
+        'accept-language',
+        'ngrok-skip-browser-warning',
+      ],
+      credentials: true,
+    },
+    middleware: async (c: any, next: any) => {
+      try {
+        const userId = c.req.header('x-user-id');
+        const tier = c.req.header('x-user-tier');
+        const tenantId = c.req.header('x-tenant-id');
+        const acceptLanguage = c.req.header('accept-language');
+        const country = c.req.header('cf-ipcountry');
+        const allowCommands = c.req.header('x-allow-commands');
+
+        let requestContext = c.get('requestContext');
+        if (!requestContext || typeof requestContext.set !== 'function') {
+          requestContext = new Map();
+          c.set('requestContext', requestContext);
+        }
+
+        if (userId) requestContext.set('user-id', userId);
+        if (tier) requestContext.set('user-tier', tier);
+        if (tenantId) requestContext.set('tenant-id', tenantId);
+
+        if (acceptLanguage) {
+          requestContext.set('locale', acceptLanguage.split(',')[0].trim());
+        }
+
+        if (country) {
+          requestContext.set(
+            'temperature-unit',
+            country.toUpperCase() === 'US' ? 'fahrenheit' : 'celsius',
+          );
+        }
+
+        if (allowCommands === 'true') {
+          requestContext.set('allow-commands', 'true');
+        }
+
+        // Manual CORS headers removed: using native server.cors configuration instead
+
+        // IMPORTANT: Call next to continue the middleware chain
+        await next();
+      } catch (err) {
+        console.error('Mastra Middleware Error:', err);
+        // Even on error, try to continue
+        await next();
+      }
+    },
+  },
+
+  // ── Global Workspace ───────────────────────────────────────────────────────
+  // Gives every agent file tools (read/write) + sandboxed shell execution.
+  // Agents that declare their own workspace (codeWorkspace, readonlyWorkspace)
+  // override this automatically.
+  workspace: globalWorkspace,
+  workflows: {
+    // Original
+    weatherWorkflow,
+    // Templates
+    deepSearchWorkflow,
+    customerFeedbackWorkflow,
+  },
+  // Observability is configured at the Mastra root, so it applies to every
+  // agent registered in this object.
+  agents: allAgents,
+  // ── MCP Servers ──────────────────────────────────────────────────────────
+  // Exposes all Mastra tools/agents/workflows via the Model Context Protocol.
+  // Accessible at: http://localhost:4111/api/mcp/mastra-tools-server/mcp
+  mcpServers: { mastraMcpServer },
+  // ── Editor ─────────────────────────────────────────────────────────────────
+  // Registers the editor so Studio shows the Editor tab on every agent.
+  // All 16 agents become editable: draft, publish, roll back, A/B test.
+  editor,
+  // Global version defaults — override per-invocation or per-request as needed.
+  // Uncomment to pin agents to specific versions in production:
+  // versions: {
+  //   agents: {
+  //     'deep-search-agent': { status: 'published' },
+  //     'customer-feedback-agent': { status: 'published' },
+  //   },
+  // },
+  // ── Global scorer registry — powers the Evaluate dashboard in Mastra Studio ─
+  // Weather-specific scorers (tool call accuracy, completeness, translation)
+  // are kept for backward compatibility. Generic scorers (completeness,
+  // answerRelevance, toxicity) apply across all agents.
+  scorers: {
+    toolCallAppropriatenessScorer,
+    completenessScorer,
+    translationScorer,
+    ...agentScorers,
+  },
+  storage: new MastraCompositeStore({
+    id: 'composite-storage',
+    default: new LibSQLStore({
+      id: "mastra-storage",
+      url: "file:./mastra.db",
+    }),
+    domains: {
+      observability: observabilityStore,
+    }
+  }),
+  logger: new PinoLogger({
+    name: 'Mastra',
+    level: 'info',
+  }),
+  observability: new Observability({
+    configs: {
+      default: {
+        serviceName: 'mastra',
+        exporters: [
+          new DefaultExporter(),
+          ...(process.env.MASTRA_CLOUD_ACCESS_TOKEN ? [new CloudExporter()] : []),
+        ],
+        spanOutputProcessors: [
+          new SensitiveDataFilter(),
+        ],
+      },
+    },
+  }),
+});

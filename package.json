@@ -1,0 +1,49 @@
+{
+	"name": "awas-ai-agent-be",
+	"version": "1.0.0",
+	"description": "Mastra AI agent network — 16 agents with full observability, evaluation, and review.",
+	"main": "index.js",
+	"scripts": {
+		"predev": "node -e \"const v=process.versions.node.split('.').map(Number);if(v[0]<22){console.error('\\x1b[31mERROR: Node >=22 required. Current: '+process.version+'. Use: /opt/homebrew/bin/node\\x1b[0m');process.exit(1)}\"",
+		"prebuild": "node -e \"const v=process.versions.node.split('.').map(Number);if(v[0]<22){console.error('\\x1b[31mERROR: Node >=22 required. Current: '+process.version+'. Use: /opt/homebrew/bin/node\\x1b[0m');process.exit(1)}\"",
+		"dev": "mastra dev --request-context-presets ./request-context-presets.json",
+		"build": "mastra build -s",
+		"start": "mastra start",
+		"typecheck": "tsc --noEmit",
+		"lint": "tsc --noEmit",
+		"clean": "rm -rf .mastra/output"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"type": "module",
+	"engines": {
+		"node": ">=22.13.0",
+		"npm": ">=10.0.0"
+	},
+	"dependencies": {
+		"@ai-sdk/openai": "^3.0.53",
+		"@hono/node-ws": "^1.3.0",
+		"@mastra/agent-browser": "^0.2.1",
+		"@mastra/core": "^1.28.0",
+		"@mastra/duckdb": "^1.2.0",
+		"@mastra/editor": "^0.7.19",
+		"@mastra/evals": "^1.2.1",
+		"@mastra/libsql": "^1.9.0",
+		"@mastra/loggers": "^1.1.1",
+		"@mastra/mcp": "^1.5.2",
+		"@mastra/memory": "^1.17.1",
+		"@mastra/observability": "^1.10.0",
+		"@modelcontextprotocol/server-filesystem": "^2026.1.14",
+		"@modelcontextprotocol/server-sequential-thinking": "^2025.12.18",
+		"ws": "^8.20.0",
+		"zod": "^4.3.6"
+	},
+	"devDependencies": {
+		"@types/node": "^25.6.0",
+		"mastra": "^1.6.3",
+		"typescript": "^6.0.3",
+		"vscode-jsonrpc": "^8.2.1",
+		"vscode-languageserver-protocol": "^3.17.5"
+	}
+}

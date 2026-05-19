@@ -1,0 +1,39 @@
+{
+  "guest": {
+    "user-id": "guest",
+    "user-tier": "free",
+    "locale": "en",
+    "temperature-unit": "celsius",
+    "allow-commands": "false"
+  },
+  "pro-user": {
+    "user-id": "u-pro-001",
+    "user-tier": "pro",
+    "locale": "en",
+    "temperature-unit": "celsius",
+    "allow-commands": "false"
+  },
+  "enterprise": {
+    "user-id": "u-ent-001",
+    "user-tier": "enterprise",
+    "locale": "en",
+    "temperature-unit": "fahrenheit",
+    "allow-commands": "true",
+    "tenant-id": "acme-corp"
+  },
+  "japanese": {
+    "user-id": "u-jp-001",
+    "user-tier": "pro",
+    "locale": "ja",
+    "temperature-unit": "celsius",
+    "allow-commands": "false"
+  },
+  "ci": {
+    "user-id": "ci-bot",
+    "user-tier": "enterprise",
+    "locale": "en",
+    "temperature-unit": "celsius",
+    "allow-commands": "true",
+    "tenant-id": "ci-pipeline"
+  }
+}
