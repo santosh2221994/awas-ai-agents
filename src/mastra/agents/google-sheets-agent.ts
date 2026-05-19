@@ -3,6 +3,7 @@ import { readSheetTool, writeSheetTool } from '../tools/google-sheets-tool';
 import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
 import { defaultScorerConfig } from '../providers/model-helpers';
+import { agentLogger, defaultTracingPolicy } from '../observability';
 
 export const googleSheetsAgent = new Agent({  id: 'Google Sheet Analysis Agent',
   name: 'Google Sheet Analysis Agent',
@@ -39,4 +40,6 @@ Currently using demo data if no API key is configured.`,
   tools: { readSheetTool, writeSheetTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────
   scorers: defaultScorerConfig(),
+  logger: agentLogger('Google Sheet Analysis Agent'),
+  tracingPolicy: defaultTracingPolicy,
 });

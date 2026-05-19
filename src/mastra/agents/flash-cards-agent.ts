@@ -3,6 +3,7 @@ import { loadPdfTool, searchPdfTool } from '../tools/pdf-tool';
 import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
 import { defaultScorerConfig } from '../providers/model-helpers';
+import { agentLogger, defaultTracingPolicy } from '../observability';
 
 export const flashCardsAgent = new Agent({  id: 'Flash Cards from PDF Agent',
   name: 'Flash Cards from PDF Agent',
@@ -44,4 +45,6 @@ After generating, offer to create a quiz from the flash cards.`,
   tools: { loadPdfTool, searchPdfTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────
   scorers: defaultScorerConfig(),
+  logger: agentLogger('Flash Cards from PDF Agent'),
+  tracingPolicy: defaultTracingPolicy,
 });

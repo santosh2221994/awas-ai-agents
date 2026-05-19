@@ -3,6 +3,7 @@ import { listTablesTool, executeSqlTool } from '../tools/sql-tool';
 import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
 import { defaultScorerConfig } from '../providers/model-helpers';
+import { agentLogger, defaultTracingPolicy } from '../observability';
 
 export const textToSqlAgent = new Agent({  id: 'Chat with Database Agent',
   name: 'Chat with Database Agent',
@@ -42,4 +43,6 @@ Example questions you can answer:
   tools: { listTablesTool, executeSqlTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────
   scorers: defaultScorerConfig(),
+  logger: agentLogger('Chat with Database Agent'),
+  tracingPolicy: defaultTracingPolicy,
 });

@@ -5,6 +5,7 @@ import { defaultMemory } from '../memory';
 import { requestContextSchema } from '../context';
 import { lmStudioModel } from '../providers/lm-studio';
 import { localeInstruction, defaultScorerConfig } from '../providers/model-helpers';
+import { agentLogger, defaultTracingPolicy } from '../observability';
 
 /** Model routing by tier — enterprise gets highest capacity, free gets flash. */
 const modelForTier = (tier: string | undefined) => {
@@ -70,5 +71,7 @@ export const weatherAgent = new Agent({
 
   tools: { weatherTool },
   scorers: defaultScorerConfig(),
+  logger: agentLogger('weather-agent'),
+  tracingPolicy: defaultTracingPolicy,
   memory: defaultMemory,
 });

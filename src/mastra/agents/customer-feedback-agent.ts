@@ -3,6 +3,7 @@ import { requestContextSchema } from '../context';
 import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
 import { defaultScorerConfig } from '../providers/model-helpers';
+import { agentLogger, defaultTracingPolicy } from '../observability';
 
 export const customerFeedbackAgent = new Agent({  id: 'Customer Feedback Summarization Agent',
   name: 'Customer Feedback Summarization Agent',
@@ -51,4 +52,6 @@ Paste customer feedback below, or describe the source (support tickets, app revi
   requestContextSchema,
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────
   scorers: defaultScorerConfig(),
+  logger: agentLogger('Customer Feedback Summarization Agent'),
+  tracingPolicy: defaultTracingPolicy,
 });
