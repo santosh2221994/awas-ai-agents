@@ -5,6 +5,7 @@ import { TokenLimiter, EnsureFinalResponseProcessor, UsageTrackerProcessor } fro
 import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
 import { lightScorerConfig } from '../providers/model-helpers';
+import { agentLogger, defaultTracingPolicy } from '../observability';
 
 // ---------------------------------------------------------------------------
 // Browser Agent — powered by @mastra/agent-browser (Playwright/Chromium).
@@ -84,4 +85,6 @@ Always cite the URLs you visited and describe what you found on each page.`,
   ],
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────
   scorers: lightScorerConfig(),
+  logger: agentLogger('browser-agent'),
+  tracingPolicy: defaultTracingPolicy,
 });

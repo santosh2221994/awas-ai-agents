@@ -4,6 +4,7 @@ import { parseCsvTool, analyzeColumnTool } from '../tools/csv-tool';
 import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
 import { defaultScorerConfig } from '../providers/model-helpers';
+import { agentLogger, defaultTracingPolicy } from '../observability';
 
 export const csvQuestionsAgent = new Agent({  id: 'CSV to Questions Agent',
   name: 'CSV to Questions Agent',
@@ -47,4 +48,6 @@ To get started, paste your CSV data or describe your dataset.`,
   tools: { parseCsvTool, analyzeColumnTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────
   scorers: defaultScorerConfig(),
+  logger: agentLogger('CSV to Questions Agent'),
+  tracingPolicy: defaultTracingPolicy,
 });

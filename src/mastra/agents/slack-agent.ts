@@ -4,6 +4,7 @@ import { listSlackChannelsTool, readSlackChannelTool, sendSlackMessageTool } fro
 import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
 import { defaultScorerConfig } from '../providers/model-helpers';
+import { agentLogger, defaultTracingPolicy } from '../observability';
 
 const BASE_INSTRUCTIONS = `You are an intelligent Slack assistant that helps manage and respond to Slack communications.
 
@@ -71,4 +72,6 @@ export const slackAgent = new Agent({
   tools: { listSlackChannelsTool, readSlackChannelTool, sendSlackMessageTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────
   scorers: defaultScorerConfig(),
+  logger: agentLogger('Slack Agent'),
+  tracingPolicy: defaultTracingPolicy,
 });

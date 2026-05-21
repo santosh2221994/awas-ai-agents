@@ -4,6 +4,7 @@ import { browseUrlTool } from '../tools/browser-tool';
 import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
 import { defaultScorerConfig } from '../providers/model-helpers';
+import { agentLogger, defaultTracingPolicy } from '../observability';
 
 export const docsChatbotAgent = new Agent({  id: 'Docs Chatbot Agent',
   name: 'Docs Chatbot Agent',
@@ -42,4 +43,6 @@ When answering:
   tools: { browseUrlTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────
   scorers: defaultScorerConfig(),
+  logger: agentLogger('Docs Chatbot Agent'),
+  tracingPolicy: defaultTracingPolicy,
 });

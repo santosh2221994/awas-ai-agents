@@ -29,6 +29,7 @@ import { lmStudioModel } from '../providers/lm-studio';
 import { skillListTool } from '../tools/skill-list-tool';
 import { requestContextSchema } from '../context';
 import { lightScorerConfig } from '../providers/model-helpers';
+import { agentLogger, defaultTracingPolicy } from '../observability';
 
 const MCP_AGENT_MAX_STEPS = 12;
 
@@ -112,4 +113,6 @@ export const mcpAgent = new Agent({
   ],
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────
   scorers: lightScorerConfig(),
+  logger: agentLogger('mcp-agent'),
+  tracingPolicy: defaultTracingPolicy,
 });
