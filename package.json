@@ -33,6 +33,7 @@
 		"@mastra/loggers": "^1.1.1",
 		"@mastra/mcp": "^1.5.2",
 		"@mastra/memory": "^1.17.1",
+		"@mastra/mongodb": "^1.9.0",
 		"@mastra/observability": "^1.10.0",
 		"@modelcontextprotocol/server-filesystem": "^2026.1.14",
 		"@modelcontextprotocol/server-sequential-thinking": "^2025.12.18",
