@@ -2,7 +2,6 @@
 import { Mastra } from '@mastra/core/mastra';
 import { PinoLogger } from '@mastra/loggers';
 import { MongoDBStore } from '@mastra/mongodb';
-import { DuckDBStore } from "@mastra/duckdb";
 import { MastraCompositeStore } from '@mastra/core/storage';
 import {
   Observability,
@@ -12,6 +11,12 @@ import {
 } from '@mastra/observability';
 import { MastraEditor } from '@mastra/editor';
 import { globalWorkspace } from './workspace';
+
+const originalConsoleInfo = console.info;
+console.info = (...args: any[]) => {
+  if (typeof args[0] === 'string' && args[0].includes('[ViewerRegistry]')) return;
+  originalConsoleInfo(...args);
+};
 
 // ── Editor instance ───────────────────────────────────────────────────────────
 // Enables the Editor tab in Mastra Studio for all registered agents.
@@ -49,20 +54,7 @@ import { mastraMcpServer } from './mcp/server';
 import { deepSearchWorkflow } from './workflows/deep-search-workflow';
 import { customerFeedbackWorkflow } from './workflows/customer-feedback-workflow';
 
-// Initialise the DuckDB observability store. DuckDB requires native bindings;
-// if init fails (e.g. wrong Node ABI), the error is surfaced immediately with
-// a clear message rather than silently degrading to an incompatible store.
-const observabilityStore = await (async () => {
-  try {
-    return await new DuckDBStore().getStore('observability');
-  } catch (err) {
-    throw new Error(
-      `[Mastra] Failed to initialise DuckDB observability store. ` +
-      `Ensure Node >=22 and run \`npm rebuild\` if you switched Node versions. ` +
-      `Original error: ${(err as Error).message}`,
-    );
-  }
-})();
+// Removed DuckDB in favor of utilizing MongoDB for all collections including observability.
 const allAgents = {
   weatherAgent,
   deepSearchAgent,
@@ -203,9 +195,6 @@ export const mastra = new Mastra({
       uri: process.env.MONGODB_URI!,
       dbName: process.env.MONGODB_DATABASE!,
     }),
-    domains: {
-      observability: observabilityStore,
-    }
   }),
   logger: new PinoLogger({
     name: 'Mastra',

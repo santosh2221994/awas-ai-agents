@@ -21,15 +21,10 @@ import { Workspace, LocalFilesystem, LocalSandbox, WORKSPACE_TOOLS } from '@mast
 import { fileURLToPath } from 'url';
 import path from 'path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Absolute paths — immune to CWD changes from Mastra's bundler
-const PROJECT_ROOT = path.resolve(__dirname, '../../..'); // my-mastra-app/
-const WORKSPACE_ROOT = path.join(PROJECT_ROOT, 'workspace');
+const PROJECT_ROOT = process.cwd(); 
+const WORKSPACE_ROOT = PROJECT_ROOT; // Agents can access the project root
 const SKILLS_DIR = [
-  path.join(__dirname, 'skills'),
-  path.resolve(PROJECT_ROOT, '../.agent/skills'),
+  '.agents/skills',
 ];
 
 // ── Global Workspace (inherited by all agents) ────────────────────────────────
@@ -210,7 +205,7 @@ export const dynamicWorkspace = new Workspace({
     const userId = requestContext?.get?.('user-id') ?? 'anonymous';
     // Sanitize — strip anything that could traverse outside workspace root
     const safeId = String(userId).replace(/[^a-zA-Z0-9_-]/g, '_');
-    return new LocalFilesystem({ basePath: path.join(WORKSPACE_ROOT, safeId) });
+    return new LocalFilesystem({ basePath: path.join(PROJECT_ROOT, 'workspace', safeId) });
   },
   sandbox: (({ requestContext }: { requestContext: any }) => {
     const userId = requestContext?.get?.('user-id') ?? 'anonymous';
@@ -218,7 +213,7 @@ export const dynamicWorkspace = new Workspace({
     const allowCommands = requestContext?.get?.('allow-commands') === 'true';
     // Return undefined when commands are not permitted for this user
     if (!allowCommands) return undefined;
-    return new LocalSandbox({ workingDirectory: path.join(WORKSPACE_ROOT, safeId) });
+    return new LocalSandbox({ workingDirectory: path.join(PROJECT_ROOT, 'workspace', safeId) });
   }) as any,
   lsp: false,
   skills: SKILLS_DIR,

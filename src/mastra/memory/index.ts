@@ -17,7 +17,14 @@ import { Memory } from '@mastra/memory';
  *                           To enable: set up a vector store + embedding provider
  *                           and change to { enabled: true, topK: 5 }.
  */
+import { MongoDBStore } from '@mastra/mongodb';
+
 export const defaultMemory = new Memory({
+  storage: new MongoDBStore({
+    id: 'mastra-memory-storage',
+    uri: process.env.MONGODB_URI!,
+    dbName: process.env.MONGODB_DATABASE!,
+  }),
   options: {
     lastMessages: 15,
     observationalMemory: true,
