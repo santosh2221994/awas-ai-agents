@@ -17,13 +17,12 @@ import { Memory } from '@mastra/memory';
  *                           To enable: set up a vector store + embedding provider
  *                           and change to { enabled: true, topK: 5 }.
  */
-import { MongoDBStore } from '@mastra/mongodb';
+import { PostgresStore } from '@mastra/pg';
 
 export const defaultMemory = new Memory({
-  storage: new MongoDBStore({
+  storage: new PostgresStore({
     id: 'mastra-memory-storage',
-    uri: process.env.MONGODB_URI!,
-    dbName: process.env.MONGODB_DATABASE!,
+    connectionString: process.env.DATABASE_URL!,
   }),
   options: {
     lastMessages: 15,

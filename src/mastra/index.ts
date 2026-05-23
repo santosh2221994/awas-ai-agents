@@ -1,7 +1,8 @@
 
 import { Mastra } from '@mastra/core/mastra';
 import { PinoLogger } from '@mastra/loggers';
-import { MongoDBStore } from '@mastra/mongodb';
+import { PostgresStore } from '@mastra/pg';
+import { DuckDBStore } from '@mastra/duckdb';
 import { MastraCompositeStore } from '@mastra/core/storage';
 import {
   Observability,
@@ -54,7 +55,7 @@ import { mastraMcpServer } from './mcp/server';
 import { deepSearchWorkflow } from './workflows/deep-search-workflow';
 import { customerFeedbackWorkflow } from './workflows/customer-feedback-workflow';
 
-// Removed DuckDB in favor of utilizing MongoDB for all collections including observability.
+// All storage domains (memory, observability, workflows, editor, etc.) backed by PostgreSQL.
 const allAgents = {
   weatherAgent,
   deepSearchAgent,
@@ -190,11 +191,13 @@ export const mastra = new Mastra({
   },
   storage: new MastraCompositeStore({
     id: 'composite-storage',
-    default: new MongoDBStore({
-      id: "mastra-storage",
-      uri: process.env.MONGODB_URI!,
-      dbName: process.env.MONGODB_DATABASE!,
+    default: new PostgresStore({
+      id: 'mastra-storage',
+      connectionString: process.env.DATABASE_URL!,
     }),
+    domains: {
+      observability: new DuckDBStore({ path: './mastra.duckdb' }).observability,
+    },
   }),
   logger: new PinoLogger({
     name: 'Mastra',

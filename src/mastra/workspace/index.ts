@@ -21,10 +21,25 @@ import { Workspace, LocalFilesystem, LocalSandbox, WORKSPACE_TOOLS } from '@mast
 import { fileURLToPath } from 'url';
 import path from 'path';
 
-const PROJECT_ROOT = process.cwd(); 
-const WORKSPACE_ROOT = PROJECT_ROOT; // Agents can access the project root
+// Derive the project root reliably regardless of execution context.
+// When bundled by `mastra dev`, import.meta.url resolves to .mastra/output/index.mjs
+// When running from source, it resolves to src/mastra/workspace/index.ts
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+function resolveProjectRoot(): string {
+  // Bundled context: .mastra/output/index.mjs → go up 2 levels
+  if (path.basename(__dirname) === 'output' && path.basename(path.dirname(__dirname)) === '.mastra') {
+    return path.resolve(__dirname, '..', '..');
+  }
+  // Source context: src/mastra/workspace/ → go up 3 levels
+  return path.resolve(__dirname, '..', '..', '..');
+}
+
+const PROJECT_ROOT = resolveProjectRoot();
+const WORKSPACE_ROOT = PROJECT_ROOT;
 const SKILLS_DIR = [
-  '.agents/skills',
+  path.join(PROJECT_ROOT, '.agents', 'skills'),
 ];
 
 // ── Global Workspace (inherited by all agents) ────────────────────────────────
