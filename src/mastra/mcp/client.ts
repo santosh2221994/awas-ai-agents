@@ -64,21 +64,5 @@ export const mcpClient = new MCPClient({
       stderr: 'ignore',
     },
 
-    // ── LM Studio Bridge — Local LLM access ─────────────────────────────────
-    // Tools: list_models, chat_completion, generate_text
-    lmstudio: {
-      command: 'uv',
-      args: [
-        'run',
-        '--python',
-        '3.12',
-        '--with',
-        'mcp',
-        '--with',
-        'httpx',
-        'python',
-        path.resolve(PROJECT_ROOT, '../lm_studio_bridge.py'),
-      ],
-    },
   },
 });

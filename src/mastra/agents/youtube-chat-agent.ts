@@ -4,7 +4,7 @@ import { getVideoMetaTool, getVideoTranscriptTool } from '../tools/youtube-tool'
 import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
 import { defaultScorerConfig } from '../providers/model-helpers';
-import { agentLogger, defaultTracingPolicy } from '../observability';
+import { defaultTracingPolicy } from '../observability';
 
 export const youtubeChatAgent = new Agent({  id: 'Chat with YouTube Agent',
   name: 'Chat with YouTube Agent',
@@ -46,6 +46,7 @@ Note: Set YOUTUBE_API_KEY in .env for real video metadata.`,
   tools: { getVideoMetaTool, getVideoTranscriptTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────
   scorers: defaultScorerConfig(),
-  logger: agentLogger('Chat with YouTube Agent'),
-  tracingPolicy: defaultTracingPolicy,
+  options: {
+    tracingPolicy: defaultTracingPolicy,
+  },
 });

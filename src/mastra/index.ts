@@ -1,7 +1,7 @@
 
 import { Mastra } from '@mastra/core/mastra';
 import { PinoLogger } from '@mastra/loggers';
-import { PostgresStore } from '@mastra/pg';
+import { MongoDBStore } from '@mastra/mongodb';
 import { DuckDBStore } from '@mastra/duckdb';
 import { MastraCompositeStore } from '@mastra/core/storage';
 import {
@@ -191,9 +191,10 @@ export const mastra = new Mastra({
   },
   storage: new MastraCompositeStore({
     id: 'composite-storage',
-    default: new PostgresStore({
+    default: new MongoDBStore({
       id: 'mastra-storage',
-      connectionString: process.env.DATABASE_URL!,
+      url: process.env.MONGODB_URI!,
+      dbName: process.env.MONGODB_DATABASE ?? 'mastra',
     }),
     domains: {
       observability: new DuckDBStore({ path: './mastra.duckdb' }).observability,

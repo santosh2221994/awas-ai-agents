@@ -5,7 +5,7 @@ import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
 import { requestContextSchema } from '../context';
 import { defaultScorerConfig } from '../providers/model-helpers';
-import { agentLogger, defaultTracingPolicy } from '../observability';
+import { defaultTracingPolicy } from '../observability';
 
 /**
  * gemma-agent.ts
@@ -60,6 +60,7 @@ Always use the local Gemma model for substantive reasoning or creative tasks as 
   tools: gemmaTools,
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────
   scorers: defaultScorerConfig(),
-  logger: agentLogger('gemma-agent'),
-  tracingPolicy: defaultTracingPolicy,
+  options: {
+    tracingPolicy: defaultTracingPolicy,
+  },
 });

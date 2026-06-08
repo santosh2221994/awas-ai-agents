@@ -8,7 +8,7 @@ import { RegexPIIRedactor } from '../processors';
 import { UsageTrackerProcessor } from '../processors';
 import { defaultMemory } from '../memory';
 import { lightScorerConfig } from '../providers/model-helpers';
-import { agentLogger, defaultTracingPolicy } from '../observability';
+import { defaultTracingPolicy } from '../observability';
 
 const prReviewInstructions = [
   'You are a senior software engineer specialized in thorough, constructive code reviews.',
@@ -77,6 +77,7 @@ export const githubPrAgent = new Agent({
   ],
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────
   scorers: lightScorerConfig(),
-  logger: agentLogger('GitHub PR Code Review Agent'),
-  tracingPolicy: defaultTracingPolicy,
+  options: {
+    tracingPolicy: defaultTracingPolicy,
+  },
 });

@@ -4,7 +4,7 @@ import { loadPdfTool, searchPdfTool } from '../tools/pdf-tool';
 import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
 import { defaultScorerConfig } from '../providers/model-helpers';
-import { agentLogger, defaultTracingPolicy } from '../observability';
+import { defaultTracingPolicy } from '../observability';
 
 export const pdfChatAgent = new Agent({  id: 'Chat with PDF Agent',
   name: 'Chat with PDF Agent',
@@ -38,6 +38,7 @@ For quiz generation, create 3-5 questions with 4 options each (A, B, C, D) and i
   tools: { loadPdfTool, searchPdfTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────
   scorers: defaultScorerConfig(),
-  logger: agentLogger('Chat with PDF Agent'),
-  tracingPolicy: defaultTracingPolicy,
+  options: {
+    tracingPolicy: defaultTracingPolicy,
+  },
 });

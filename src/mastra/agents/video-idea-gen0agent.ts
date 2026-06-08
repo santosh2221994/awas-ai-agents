@@ -7,7 +7,7 @@ import { UsageTrackerProcessor } from '../processors';
 import { defaultMemory } from '../memory';
 import { requestContextSchema } from '../context';
 import { getDefaultModel, getTokenLimit, localeInstruction, DEEP_SEARCH_MAX_STEPS, lightScorerConfig } from '../providers/model-helpers';
-import { agentLogger, defaultTracingPolicy } from '../observability';
+import { defaultTracingPolicy } from '../observability';
 
 const BASE_INSTRUCTIONS = `You are a world-class creative producer for films and digital content.
 
@@ -58,6 +58,7 @@ export const videoIdeaGenagent = new Agent({
   ],
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────
   scorers: lightScorerConfig(),
-  logger: agentLogger('video-idea-gen0agent'),
-  tracingPolicy: defaultTracingPolicy,
+  options: {
+    tracingPolicy: defaultTracingPolicy,
+  },
 });
