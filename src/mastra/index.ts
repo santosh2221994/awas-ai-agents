@@ -47,6 +47,8 @@ import { customerFeedbackAgent } from './agents/customer-feedback-agent';
 import { mcpAgent } from './agents/mcp-agent';
 import { gemmaAgent } from './agents/gemma-agent';
 import { videoIdeaGenagent } from './agents/video-idea-gen0agent';
+import { reactNativeAgent } from './agents/react-native-agent';
+import { translationAgent } from './agents/translation-agent';
 
 // ── MCP ──────────────────────────────────────────────────────────────────────
 import { mastraMcpServer } from './mcp/server';
@@ -54,6 +56,20 @@ import { mastraMcpServer } from './mcp/server';
 // ── Template Workflows ───────────────────────────────────────────────────────
 import { deepSearchWorkflow } from './workflows/deep-search-workflow';
 import { customerFeedbackWorkflow } from './workflows/customer-feedback-workflow';
+import { browserWorkflow } from './workflows/browser-workflow';
+import { csvQuestionsWorkflow } from './workflows/csv-questions-workflow';
+import { docsChatbotWorkflow } from './workflows/docs-chatbot-workflow';
+import { flashCardsWorkflow } from './workflows/flash-cards-workflow';
+import { gemmaWorkflow } from './workflows/gemma-workflow';
+import { githubPrWorkflow } from './workflows/github-pr-workflow';
+import { googleSheetsWorkflow } from './workflows/google-sheets-workflow';
+import { mcpWorkflow } from './workflows/mcp-workflow';
+import { pdfChatWorkflow } from './workflows/pdf-chat-workflow';
+import { slackWorkflow } from './workflows/slack-workflow';
+import { textToSqlWorkflow } from './workflows/text-to-sql-workflow';
+import { videoIdeaGenWorkflow } from './workflows/video-idea-gen-workflow';
+import { youtubeChatWorkflow } from './workflows/youtube-chat-workflow';
+import { reactNativeWorkflow } from './workflows/react-native-workflow';
 
 // All storage domains (memory, observability, workflows, editor, etc.) backed by PostgreSQL.
 const allAgents = {
@@ -73,6 +89,8 @@ const allAgents = {
   mcpAgent,
   gemmaAgent,
   videoIdeaGenagent,
+  'react-native-agent': reactNativeAgent,
+  translationAgent,
 };
 
 export const mastra = new Mastra({
@@ -83,6 +101,8 @@ export const mastra = new Mastra({
   server: {
     host: 'localhost',
     port: 4111,
+    bodyLimit: 10 * 1024 * 1024, // 10MB
+    timeout: 120000, // 2 minutes for long LLM responses
     // Override via env vars — useful when ngrok URL changes
     studioHost: process.env.MASTRA_STUDIO_HOST,
     studioProtocol: (process.env.MASTRA_STUDIO_PROTOCOL as 'http' | 'https' | undefined),
@@ -159,6 +179,20 @@ export const mastra = new Mastra({
     // Templates
     deepSearchWorkflow,
     customerFeedbackWorkflow,
+    browserWorkflow,
+    csvQuestionsWorkflow,
+    docsChatbotWorkflow,
+    flashCardsWorkflow,
+    gemmaWorkflow,
+    githubPrWorkflow,
+    googleSheetsWorkflow,
+    mcpWorkflow,
+    pdfChatWorkflow,
+    slackWorkflow,
+    textToSqlWorkflow,
+    videoIdeaGenWorkflow,
+    youtubeChatWorkflow,
+    'react-native-workflow': reactNativeWorkflow,
   },
   // Observability is configured at the Mastra root, so it applies to every
   // agent registered in this object.
