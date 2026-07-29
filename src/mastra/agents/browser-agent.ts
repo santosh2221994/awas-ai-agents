@@ -7,29 +7,6 @@ import { defaultMemory } from '../memory';
 import { lightScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
-// ---------------------------------------------------------------------------
-// Browser Agent — powered by @mastra/agent-browser (Playwright/Chromium).
-//
-// The AgentBrowser instance automatically injects its full tool set:
-//   navigate(url)          — go to a URL and wait for page load
-//   click(selector)        — click any element by CSS/accessibility selector
-//   type(selector, text)   — fill a form field
-//   getPageContent()       — get the current page's text/HTML
-//   screenshot()           — capture a PNG of the current viewport
-//   evaluate(js)           — run arbitrary JavaScript on the page
-//   getPageTitle()         — read the page <title>
-//   goBack() / goForward() — browser history navigation
-//   hover(selector)        — hover over an element
-//   select(selector, val)  — choose a <select> option
-//   waitForSelector(sel)   — wait until an element appears
-//
-// Screencast is enabled — open Mastra Studio → Agents → Browser Agent
-// to watch the browser in real-time.
-//
-// To run headless: set BROWSER_HEADLESS=true in .env
-// To use a remote browser: set BROWSER_CDP_URL in .env
-// ---------------------------------------------------------------------------
-
 const BROWSER_MAX_STEPS = 15;
 
 export const browserAgent = new Agent({

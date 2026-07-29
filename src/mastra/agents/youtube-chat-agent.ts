@@ -6,7 +6,7 @@ import { defaultMemory } from '../memory';
 import { defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
-export const youtubeChatAgent = new Agent({  id: 'Chat with YouTube Agent',
+export const youtubeChatAgent = new Agent({  id: 'youtube-chat-agent',
   name: 'Chat with YouTube Agent',
   description: 'Fetches YouTube video metadata and transcripts, then answers questions about video content.',
   workspace: readonlyWorkspace,

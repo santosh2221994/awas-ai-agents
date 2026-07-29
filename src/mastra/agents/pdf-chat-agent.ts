@@ -6,7 +6,7 @@ import { defaultMemory } from '../memory';
 import { defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
-export const pdfChatAgent = new Agent({  id: 'Chat with PDF Agent',
+export const pdfChatAgent = new Agent({  id: 'pdf-chat-agent',
   name: 'Chat with PDF Agent',
   description: 'Reads PDF files and answers questions about their content with citations.',
   workspace: readonlyWorkspace,

@@ -5,7 +5,7 @@ import { defaultMemory } from '../memory';
 import { defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
-export const googleSheetsAgent = new Agent({  id: 'Google Sheet Analysis Agent',
+export const googleSheetsAgent = new Agent({  id: 'google-sheets-agent',
   name: 'Google Sheet Analysis Agent',
   description: 'Reads and analyzes Google Sheets data, answers questions, and produces summaries and charts.',
   instructions: `You are a data analyst specializing in Google Sheets. You help users understand, analyze, and edit their spreadsheet data.

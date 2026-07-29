@@ -11,7 +11,12 @@ import {
   SensitiveDataFilter,
 } from '@mastra/observability';
 import { MastraEditor } from '@mastra/editor';
+import path from 'node:path';
 import { globalWorkspace } from './workspace';
+
+// Ensure Mastra Studio detects installed observability & evals packages
+process.env.MASTRA_DEV = 'true';
+process.env.MASTRA_PACKAGES_FILE = path.resolve(process.cwd(), '.mastra/mastra-packages.json');
 
 const originalConsoleInfo = console.info;
 console.info = (...args: any[]) => {
@@ -49,6 +54,7 @@ import { gemmaAgent } from './agents/gemma-agent';
 import { videoIdeaGenagent } from './agents/video-idea-gen0agent';
 import { reactNativeAgent } from './agents/react-native-agent';
 import { translationAgent } from './agents/translation-agent';
+import { studioChatAgent } from './agents/studio-chat-agent';
 
 // ── MCP ──────────────────────────────────────────────────────────────────────
 import { mastraMcpServer } from './mcp/server';
@@ -91,6 +97,8 @@ const allAgents = {
   videoIdeaGenagent,
   'react-native-agent': reactNativeAgent,
   translationAgent,
+  studioChatAgent,
+  'studio-chat-agent': studioChatAgent,
 };
 
 export const mastra = new Mastra({
@@ -101,7 +109,6 @@ export const mastra = new Mastra({
   server: {
     host: 'localhost',
     port: 4111,
-    bodyLimit: 10 * 1024 * 1024, // 10MB
     timeout: 120000, // 2 minutes for long LLM responses
     // Override via env vars — useful when ngrok URL changes
     studioHost: process.env.MASTRA_STUDIO_HOST,
@@ -204,7 +211,7 @@ export const mastra = new Mastra({
   // ── Editor ─────────────────────────────────────────────────────────────────
   // Registers the editor so Studio shows the Editor tab on every agent.
   // All 16 agents become editable: draft, publish, roll back, A/B test.
-  editor,
+  editor: editor as any,
   // Global version defaults — override per-invocation or per-request as needed.
   // Uncomment to pin agents to specific versions in production:
   // versions: {
@@ -241,7 +248,7 @@ export const mastra = new Mastra({
   observability: new Observability({
     configs: {
       default: {
-        serviceName: 'mastra',
+        serviceName: 'awas-ai-agents',
         exporters: [
           new DefaultExporter(),
           ...(process.env.MASTRA_CLOUD_ACCESS_TOKEN ? [new CloudExporter()] : []),
@@ -249,7 +256,23 @@ export const mastra = new Mastra({
         spanOutputProcessors: [
           new SensitiveDataFilter(),
         ],
+        // ── Logging ──────────────────────────────────────────────────────────
+        // Dual-write logs to observability storage (DuckDB) so they appear
+        // correlated with traces in the Studio Traces view.
+        logging: {
+          enabled: true,
+          level: 'info',
+        },
+        // ── Request Context Keys ─────────────────────────────────────────────
+        // Automatically tag every span with these middleware-injected values
+        // so you can filter traces by user, tenant, or tier in Studio.
+        requestContextKeys: [
+          'user-id',
+          'user-tier',
+          'tenant-id',
+          'locale',
+        ],
       },
     },
-  }),
+  }) as any,
 });

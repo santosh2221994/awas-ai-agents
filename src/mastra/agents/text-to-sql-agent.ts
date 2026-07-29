@@ -5,7 +5,7 @@ import { defaultMemory } from '../memory';
 import { defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
-export const textToSqlAgent = new Agent({  id: 'Chat with Database Agent',
+export const textToSqlAgent = new Agent({  id: 'text-to-sql-agent',
   name: 'Chat with Database Agent',
   description: 'Converts natural language questions into SQL queries, executes them, and explains results.',
   instructions: `You are a database assistant that translates natural language questions into SQL queries.

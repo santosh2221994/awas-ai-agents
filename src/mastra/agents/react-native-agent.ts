@@ -31,6 +31,5 @@ Guidelines:
   scorers: defaultScorerConfig(),
   options: {
     tracingPolicy: defaultTracingPolicy,
-    timeout: 120000, // 2 minutes — handles large code generation responses
   },
 });

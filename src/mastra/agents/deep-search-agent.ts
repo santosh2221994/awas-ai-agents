@@ -28,7 +28,7 @@ Format your final response with:
 - Any important caveats or limitations`;
 
 export const deepSearchAgent = new Agent({
-  id: 'Deep Search Agent',
+  id: 'deep-search-agent',
   name: 'Deep Search Agent',
   description: 'Performs deep multi-step web research using Exa search, evaluates source quality, and synthesizes comprehensive cited answers.',
   workspace: readonlyWorkspace,

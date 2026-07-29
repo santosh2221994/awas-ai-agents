@@ -36,7 +36,7 @@ To use with real Slack:
 Currently using demo data if no token is configured.`;
 
 export const slackAgent = new Agent({
-  id: 'Slack Agent',
+  id: 'slack-agent',
   name: 'Slack Agent',
   description: 'Reads Slack channels and sends messages on behalf of the user via the Slack API.',
 

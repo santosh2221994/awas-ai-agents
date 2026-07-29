@@ -1,0 +1,8 @@
+[
+  { "name": "@mastra/core", "version": "1.28.0" },
+  { "name": "@mastra/observability", "version": "1.10.0" },
+  { "name": "@mastra/evals", "version": "1.2.1" },
+  { "name": "@mastra/editor", "version": "0.7.19" },
+  { "name": "@mastra/duckdb", "version": "1.4.0" },
+  { "name": "@mastra/memory", "version": "1.17.1" }
+]

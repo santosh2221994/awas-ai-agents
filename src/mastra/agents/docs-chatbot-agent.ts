@@ -6,7 +6,7 @@ import { defaultMemory } from '../memory';
 import { defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
-export const docsChatbotAgent = new Agent({  id: 'Docs Chatbot Agent',
+export const docsChatbotAgent = new Agent({  id: 'docs-chatbot-agent',
   name: 'Docs Chatbot Agent',
   description: 'Answers questions about documentation by fetching and reading docs pages in real time.',
   workspace: readonlyWorkspace,

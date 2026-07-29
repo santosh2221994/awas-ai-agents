@@ -5,7 +5,7 @@ import { defaultMemory } from '../memory';
 import { defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
-export const flashCardsAgent = new Agent({  id: 'Flash Cards from PDF Agent',
+export const flashCardsAgent = new Agent({  id: 'flash-cards-agent',
   name: 'Flash Cards from PDF Agent',
   description: 'Reads PDF documents and generates structured Q&A flash cards for study and review.',
   instructions: `You are an educational content creator that generates flash cards from PDF documents.

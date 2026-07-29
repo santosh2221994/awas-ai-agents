@@ -6,7 +6,7 @@ import { defaultMemory } from '../memory';
 import { defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
-export const csvQuestionsAgent = new Agent({  id: 'CSV to Questions Agent',
+export const csvQuestionsAgent = new Agent({  id: 'csv-questions-agent',
   name: 'CSV to Questions Agent',
   description: 'Parses CSV files and generates insightful questions and analysis based on the data.',
   workspace: readonlyWorkspace,

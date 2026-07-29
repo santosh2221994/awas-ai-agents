@@ -5,7 +5,7 @@ import { defaultMemory } from '../memory';
 import { defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
-export const customerFeedbackAgent = new Agent({  id: 'Customer Feedback Summarization Agent',
+export const customerFeedbackAgent = new Agent({  id: 'customer-feedback-agent',
   name: 'Customer Feedback Summarization Agent',
   description: 'Analyzes and summarizes customer feedback, extracts sentiment, themes, and actionable insights.',
   instructions: `You are a customer insights analyst specializing in feedback analysis and actionable reporting.
