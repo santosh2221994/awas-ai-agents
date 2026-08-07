@@ -21,16 +21,18 @@ import {
   createAnswerRelevancyScorer,
   createToxicityScorer,
 } from '@mastra/evals/scorers/prebuilt';
+import { lmStudioModel } from '../providers/lm-studio';
 
 // ── Judge model — same string format agents use ───────────────────────────────
-// When a Google key is set, use Gemini Flash; otherwise fall back to LM Studio.
-const judgeModelId = (() => {
+// When a Google key is set, use Gemini Flash (gateway string);
+// otherwise use the lmStudioModel() instance directly — plain model ID strings
+// are rejected by Mastra's gateway router which requires "provider/model" format.
+const judgeModel = (() => {
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (key && key !== 'your-google-api-key') {
     return 'google/gemini-2.0-flash' as const;
   }
-  // LM Studio model string via OpenAI-compatible router
-  return (process.env.LM_STUDIO_MODEL ?? 'lmstudio/gemma-3-4b-it') as string;
+  return lmStudioModel();
 })();
 
 // ── Completeness ─────────────────────────────────────────────────────────────
@@ -48,7 +50,7 @@ export const genericCompletenessScorer = createCompletenessScorer();
  * Score: 0.0 (off-topic) → 1.0 (highly relevant)
  */
 export const answerRelevanceScorer = createAnswerRelevancyScorer({
-  model: judgeModelId as any,
+  model: judgeModel as any,
 });
 
 // ── Toxicity ─────────────────────────────────────────────────────────────────
@@ -58,7 +60,7 @@ export const answerRelevanceScorer = createAnswerRelevancyScorer({
  * Score: 0.0 (toxic) → 1.0 (clean)
  */
 export const toxicityScorer = createToxicityScorer({
-  model: judgeModelId as any,
+  model: judgeModel as any,
 });
 
 // ── Named export for index.ts global scorer registry ─────────────────────────

@@ -19,6 +19,10 @@ import { Memory } from '@mastra/memory';
  */
 import { MongoDBStore } from '@mastra/mongodb';
 
+const isLocalMode =
+  !process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+  process.env.GOOGLE_GENERATIVE_AI_API_KEY === 'your-google-api-key';
+
 export const defaultMemory = new Memory({
   storage: new MongoDBStore({
     id: 'mastra-memory-storage',
@@ -27,9 +31,13 @@ export const defaultMemory = new Memory({
   }),
   options: {
     lastMessages: 15,
-    observationalMemory: true,
+    // observationalMemory injects system messages mid-conversation which
+    // breaks gemma-3-4b's strict role-alternation Jinja template.
+    observationalMemory: !isLocalMode,
+    // workingMemory injects <working-memory> system blocks after turn 0 —
+    // also incompatible with gemma's template in local mode.
     workingMemory: {
-      enabled: true,
+      enabled: !isLocalMode,
     },
   },
 });
