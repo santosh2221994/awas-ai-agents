@@ -29,7 +29,8 @@ export const DEEP_SEARCH_MAX_STEPS = 10;
  */
 export function getDefaultModel(modelId?: string): string | ReturnType<typeof lmStudioModel> {
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  if (!key || key === 'your-google-api-key') {
+  const gatewayKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY;
+  if ((!key || key === 'your-google-api-key') && !gatewayKey) {
     return lmStudioModel(modelId);
   }
   return 'google/gemini-2.0-flash';
@@ -39,15 +40,16 @@ export function getDefaultModel(modelId?: string): string | ReturnType<typeof lm
 
 /**
  * Returns the appropriate token limit for the current environment:
- *  - Google Gemini Flash  → 100 000 tokens
- *  - Local LM Studio      → LM_STUDIO_CTX env var, defaulting to 6 000
+ *  - Google Gemini Flash / AI Gateway → 100 000 tokens
+ *  - Local LM Studio                 → LM_STUDIO_CTX env var, defaulting to 6 000
  *
  * @example
  *   new TokenLimiter(getTokenLimit())
  */
 export function getTokenLimit(): number {
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  const isLocal = !key || key === 'your-google-api-key';
+  const gatewayKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY;
+  const isLocal = (!key || key === 'your-google-api-key') && !gatewayKey;
   return isLocal
     ? parseInt(process.env.LM_STUDIO_CTX ?? '6000', 10)
     : 100_000;

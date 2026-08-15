@@ -19,9 +19,10 @@ import { Memory } from '@mastra/memory';
  */
 import { MongoDBStore } from '@mastra/mongodb';
 
-const isLocalMode =
-  !process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
-  process.env.GOOGLE_GENERATIVE_AI_API_KEY === 'your-google-api-key';
+const hasCloudKey =
+  (process.env.GOOGLE_GENERATIVE_AI_API_KEY && process.env.GOOGLE_GENERATIVE_AI_API_KEY !== 'your-google-api-key') ||
+  Boolean(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY);
+const isLocalMode = !hasCloudKey;
 
 export const defaultMemory = new Memory({
   storage: new MongoDBStore({

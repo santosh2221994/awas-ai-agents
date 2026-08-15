@@ -87,19 +87,19 @@ export class UsageTrackerProcessor implements Processor {
         const lastMsg = messages[messages.length - 1];
         if (lastMsg.role === 'assistant') {
           if (!lastMsg.content) {
-            lastMsg.content = { parts: [] };
+            lastMsg.content = { format: 2, parts: [] } as any;
           } else if (typeof lastMsg.content === 'string') {
-            lastMsg.content = { parts: [{ type: 'text', text: lastMsg.content }] };
+            lastMsg.content = { format: 2, parts: [{ type: 'text', text: lastMsg.content }] } as any;
           }
 
           if (!lastMsg.content.parts) {
-            lastMsg.content.parts = [];
+            (lastMsg.content as any).parts = [];
           }
 
           // Remove any pre-existing usage parts and add the new one
-          lastMsg.content.parts = lastMsg.content.parts.filter((p: any) => p.type !== 'usage');
-          lastMsg.content.parts.push({
-            type: 'usage',
+          (lastMsg.content as any).parts = (lastMsg.content as any).parts.filter((p: any) => p.type !== 'data-usage' && p.type !== 'usage');
+          (lastMsg.content as any).parts.push({
+            type: 'data-usage',
             usage: {
               promptTokens: inputTokens,
               completionTokens: outputTokens,
@@ -108,6 +108,7 @@ export class UsageTrackerProcessor implements Processor {
               duration,
             },
           });
+
         }
       }
     }

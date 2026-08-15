@@ -115,6 +115,6 @@ export function lmStudioModel(modelId?: string) {
   const id =
     modelId ??
     process.env.LM_STUDIO_MODEL ??
-    'zai-org/glm-4.6v-flash';
+    'google/gemma-3-4b';
   return lmStudio.chat(id);
 }
