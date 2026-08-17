@@ -9,6 +9,10 @@
  */
 
 import { lmStudioModel } from './lm-studio';
+import { groqModel } from './groq';
+import { resolveAgentModel, GLOBAL_AGENT_CONFIG } from '../services/agent-config-service';
+
+export { resolveAgentModel, GLOBAL_AGENT_CONFIG };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -18,22 +22,26 @@ export const DEEP_SEARCH_MAX_STEPS = 10;
 // ── Model selection ───────────────────────────────────────────────────────────
 
 /**
+ * Returns a fallback model when Google AI API key is missing.
+ * Delegated to central resolveAgentModel().
+ */
+export function getFallbackModel(modelId?: string) {
+  return resolveAgentModel(modelId ? (modelId.includes(':') ? modelId : `groq:${modelId}`) : undefined);
+}
+
+/**
  * Returns the default production model string when a Google API key is set,
- * or a local LM Studio model when the key is missing/placeholder.
+ * or Groq / local LM Studio model when the key is missing/placeholder.
+ * Delegated to central resolveAgentModel().
  *
- * @param modelId  Optional LM Studio model ID override (only used in local mode).
+ * @param modelId  Optional model ID override.
  *
  * @example
  *   model: () => getDefaultModel()
- *   model: () => getDefaultModel('qwen2.5-7b-instruct')
+ *   model: () => getDefaultModel('llama-3.3-70b-versatile')
  */
-export function getDefaultModel(modelId?: string): string | ReturnType<typeof lmStudioModel> {
-  const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  const gatewayKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY;
-  if ((!key || key === 'your-google-api-key') && !gatewayKey) {
-    return lmStudioModel(modelId);
-  }
-  return 'google/gemini-2.0-flash';
+export function getDefaultModel(modelId?: string): string | ReturnType<typeof lmStudioModel> | ReturnType<typeof groqModel> {
+  return resolveAgentModel(modelId);
 }
 
 // ── Token limits ──────────────────────────────────────────────────────────────

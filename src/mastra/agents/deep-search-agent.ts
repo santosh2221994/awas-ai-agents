@@ -6,7 +6,7 @@ import { EnsureFinalResponseProcessor } from '../processors';
 import { UsageTrackerProcessor } from '../processors';
 import { defaultMemory } from '../memory';
 import { requestContextSchema } from '../context';
-import { getDefaultModel, getTokenLimit, localeInstruction, DEEP_SEARCH_MAX_STEPS, lightScorerConfig } from '../providers/model-helpers';
+import { resolveAgentModel, getTokenLimit, localeInstruction, DEEP_SEARCH_MAX_STEPS, lightScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
 const BASE_INSTRUCTIONS = `You are a thorough AI research assistant that evaluates your own work.
@@ -43,7 +43,7 @@ export const deepSearchAgent = new Agent({
   // ── Context schema ────────────────────────────────────────────────────────
   requestContextSchema,
 
-  model: () => getDefaultModel(),
+  model: () => resolveAgentModel(),
 
   tools: { exaSearchTool, exaScrapePageTool },
 

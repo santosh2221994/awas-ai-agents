@@ -130,6 +130,15 @@ export const mastra = new Mastra({
     },
     middleware: async (c: any, next: any) => {
       try {
+        // Handle missing transportId query param on MCP routes to prevent MastraServer ZodError
+        const origQuery = c.req.query.bind(c.req);
+        c.req.query = (key?: string) => {
+          if (key === 'transportId') {
+            return origQuery('transportId') || 'sse';
+          }
+          return origQuery(key as any);
+        };
+
         const userId = c.req.header('x-user-id');
         const tier = c.req.header('x-user-tier');
         const tenantId = c.req.header('x-tenant-id');

@@ -7,16 +7,19 @@
  * After running, open Mastra Studio → Agents → [any agent] → Editor tab.
  */
 
+import 'dotenv/config';
 import { mastra } from '../index';
 
 // StorageModelConfig requires { provider, name } — not a plain string.
-const GEMINI = { provider: 'google', name: 'gemini-2.0-flash' };
+const DEFAULT_MODEL = process.env.GROQ_API_KEY
+  ? { provider: 'openai', name: 'llama-3.3-70b-versatile' }
+  : { provider: 'google', name: 'gemini-2.0-flash' };
 
 const agentSeeds = [
   {
     id: 'deep-search-agent',
     name: 'Deep Search Agent',
-    model: GEMINI,
+    model: DEFAULT_MODEL,
     instructions: [
       'You are a thorough AI research assistant that evaluates your own work.',
       '',
@@ -33,7 +36,7 @@ const agentSeeds = [
   {
     id: 'google-sheets-agent',
     name: 'Google Sheet Analysis Agent',
-    model: GEMINI,
+    model: DEFAULT_MODEL,
     instructions: [
       'You are a data analyst specializing in Google Sheets.',
       '',
@@ -49,7 +52,7 @@ const agentSeeds = [
   {
     id: 'browser-agent',
     name: 'Browser Agent',
-    model: GEMINI,
+    model: DEFAULT_MODEL,
     instructions: [
       'You are a web browsing assistant that can search the web and read pages.',
       '',
@@ -65,7 +68,7 @@ const agentSeeds = [
   {
     id: 'text-to-sql-agent',
     name: 'Chat with Database Agent',
-    model: GEMINI,
+    model: DEFAULT_MODEL,
     instructions: [
       'You are a database assistant that translates natural language into SQL.',
       '',
@@ -82,7 +85,7 @@ const agentSeeds = [
   {
     id: 'pdf-chat-agent',
     name: 'Chat with PDF Agent',
-    model: GEMINI,
+    model: DEFAULT_MODEL,
     instructions: [
       'You are an AI assistant that helps users understand PDF documents.',
       '',
@@ -98,7 +101,7 @@ const agentSeeds = [
   {
     id: 'flash-cards-agent',
     name: 'Flash Cards from PDF Agent',
-    model: GEMINI,
+    model: DEFAULT_MODEL,
     instructions: [
       'You are an educational content creator that generates flash cards from PDF documents.',
       '',
@@ -112,7 +115,7 @@ const agentSeeds = [
   {
     id: 'csv-questions-agent',
     name: 'CSV to Questions Agent',
-    model: GEMINI,
+    model: DEFAULT_MODEL,
     instructions: [
       'You are a data analyst that helps users explore CSV datasets.',
       '',
@@ -128,7 +131,7 @@ const agentSeeds = [
   {
     id: 'github-pr-agent',
     name: 'GitHub PR Code Review Agent',
-    model: GEMINI,
+    model: DEFAULT_MODEL,
     instructions: [
       'You are a senior software engineer specializing in thorough code reviews.',
       '',
@@ -148,7 +151,7 @@ const agentSeeds = [
   {
     id: 'docs-chatbot-agent',
     name: 'Docs Chatbot Agent',
-    model: GEMINI,
+    model: DEFAULT_MODEL,
     instructions: [
       'You are a helpful documentation assistant.',
       '',
@@ -164,7 +167,7 @@ const agentSeeds = [
   {
     id: 'youtube-chat-agent',
     name: 'Chat with YouTube Agent',
-    model: GEMINI,
+    model: DEFAULT_MODEL,
     instructions: [
       'You are a YouTube video assistant.',
       '',
@@ -181,7 +184,7 @@ const agentSeeds = [
   {
     id: 'slack-agent',
     name: 'Slack Agent',
-    model: GEMINI,
+    model: DEFAULT_MODEL,
     instructions: [
       'You are an intelligent Slack assistant.',
       '',
@@ -199,7 +202,7 @@ const agentSeeds = [
   {
     id: 'customer-feedback-agent',
     name: 'Customer Feedback Summarization Agent',
-    model: GEMINI,
+    model: DEFAULT_MODEL,
     instructions: [
       'You are a customer insights analyst.',
       '',
