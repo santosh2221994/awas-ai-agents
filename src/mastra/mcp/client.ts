@@ -28,41 +28,47 @@ import path from 'path';
 // We resolve relative to this file so paths survive bundling.
 const require = createRequire(import.meta.url);
 
-// Derive absolute paths for MCP server entry points from package.json locations
-// (avoids CWD-relative resolution which breaks in Mastra's dev bundler)
-const fsPkgDir = path.dirname(require.resolve('@modelcontextprotocol/server-filesystem/package.json'));
-const stPkgDir = path.dirname(require.resolve('@modelcontextprotocol/server-sequential-thinking/package.json'));
+function getPkgDir(pkgName: string): string | null {
+  try {
+    return path.dirname(require.resolve(`${pkgName}/package.json`));
+  } catch {
+    return null;
+  }
+}
 
-// Project root = 4 dirs up from node_modules/<pkg>/
-// node_modules is inside my-mastra-app, so: <pkg_dir>/../.. = my-mastra-app root
-const PROJECT_ROOT = path.resolve(fsPkgDir, '../../..');
+// Derive absolute paths for MCP server entry points safely
+const fsPkgDir = getPkgDir('@modelcontextprotocol/server-filesystem');
+const stPkgDir = getPkgDir('@modelcontextprotocol/server-sequential-thinking');
+
+const servers: Record<string, any> = {};
+
+if (fsPkgDir) {
+  // Project root = 4 dirs up from node_modules/<pkg>/
+  const PROJECT_ROOT = path.resolve(fsPkgDir, '../../..');
+  servers.filesystem = {
+    command: process.execPath,
+    args: [
+      path.join(fsPkgDir, 'dist/index.js'),
+      PROJECT_ROOT,
+    ],
+    env: { ...process.env, LOG_LEVEL: 'error' },
+    stderr: 'ignore',
+    roots: [
+      { uri: `file://${PROJECT_ROOT}`, name: 'Project Root' }
+    ]
+  };
+}
+
+if (stPkgDir) {
+  servers.sequentialThinking = {
+    command: process.execPath,
+    args: [path.join(stPkgDir, 'dist/index.js')],
+    env: { ...process.env, LOG_LEVEL: 'error' },
+    stderr: 'ignore',
+  };
+}
 
 export const mcpClient = new MCPClient({
   id: 'mastra-mcp-client',
-  servers: {
-    // ── Filesystem (sandboxed to project root) ──────────────────────────────
-    // Tools: read_file, write_file, list_directory, create_directory, move_file
-    filesystem: {
-      command: process.execPath,
-      args: [
-        path.join(fsPkgDir, 'dist/index.js'),
-        PROJECT_ROOT,
-      ],
-      env: { ...process.env, LOG_LEVEL: 'error' },
-      stderr: 'ignore',
-      roots: [
-        { uri: `file://${PROJECT_ROOT}`, name: 'Project Root' }
-      ]
-    },
-
-    // ── Sequential Thinking — multi-step structured reasoning ───────────────
-    // Tool: sequentialthinking — chains thoughts with back-tracking support
-    sequentialThinking: {
-      command: process.execPath,
-      args: [path.join(stPkgDir, 'dist/index.js')],
-      env: { ...process.env, LOG_LEVEL: 'error' },
-      stderr: 'ignore',
-    },
-
-  },
+  servers,
 });
