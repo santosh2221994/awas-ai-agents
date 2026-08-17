@@ -24,10 +24,15 @@ const hasCloudKey =
   Boolean(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY);
 const isLocalMode = !hasCloudKey;
 
+const mongodbUri =
+  process.env.MONGODB_URI ||
+  'mongodb+srv://backend-agents:Ct1GtVObDZ3UpL0r@awas.ieqeep7.mongodb.net/';
+
 export const defaultMemory = new Memory({
   storage: new MongoDBStore({
     id: 'mastra-memory-storage',
-    url: process.env.MONGODB_URI!,
+    uri: mongodbUri,
+    url: mongodbUri,
     dbName: process.env.MONGODB_DATABASE ?? 'mastra',
   }),
   options: {

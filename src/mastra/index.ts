@@ -12,7 +12,7 @@ import {
 } from '@mastra/observability';
 import { MastraEditor } from '@mastra/editor';
 import path from 'node:path';
-import { globalWorkspace } from './workspace';
+import { globalWorkspace } from './workspace/index';
 
 // Ensure Mastra Studio detects installed observability & evals packages
 process.env.MASTRA_DEV = 'true';
@@ -242,7 +242,8 @@ export const mastra = new Mastra({
     id: 'composite-storage',
     default: new MongoDBStore({
       id: 'mastra-storage',
-      url: process.env.MONGODB_URI!,
+      uri: process.env.MONGODB_URI || 'mongodb+srv://backend-agents:Ct1GtVObDZ3UpL0r@awas.ieqeep7.mongodb.net/',
+      url: process.env.MONGODB_URI || 'mongodb+srv://backend-agents:Ct1GtVObDZ3UpL0r@awas.ieqeep7.mongodb.net/',
       dbName: process.env.MONGODB_DATABASE ?? 'mastra',
     }),
     domains: {
