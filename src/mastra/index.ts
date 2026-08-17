@@ -3,17 +3,16 @@ import { Mastra } from '@mastra/core/mastra';
 import { VercelDeployer } from '@mastra/deployer-vercel';
 import { PinoLogger } from '@mastra/loggers';
 import { MongoDBStore } from '@mastra/mongodb';
-import { DuckDBStore } from '@mastra/duckdb';
-import { MastraCompositeStore } from '@mastra/core/storage';
 import {
   Observability,
   DefaultExporter,
   CloudExporter,
   SensitiveDataFilter,
 } from '@mastra/observability';
-import { MastraEditor } from '@mastra/editor';
 import path from 'node:path';
-import { globalWorkspace } from './workspace/index';
+
+// ── Environment detection ─────────────────────────────────────────────────────
+const isVercel = Boolean(process.env.VERCEL);
 
 // Ensure Mastra Studio detects installed observability & evals packages
 process.env.MASTRA_DEV = 'true';
@@ -26,10 +25,44 @@ console.info = (...args: any[]) => {
 };
 
 // ── Editor instance ───────────────────────────────────────────────────────────
-// Enables the Editor tab in Mastra Studio for all registered agents.
-// Non-developers can iterate on instructions, tools, and variables without
-// touching code. Every save creates a versioned snapshot; publish when ready.
-const editor = new MastraEditor();
+// Only load MastraEditor when NOT on Vercel (requires persistent filesystem).
+let editor: any = undefined;
+if (!isVercel) {
+  try {
+    const { MastraEditor } = await import('@mastra/editor');
+    editor = new MastraEditor();
+  } catch {
+    // Editor package not available — skip silently
+  }
+}
+
+// ── DuckDB Storage (local-only) ───────────────────────────────────────────────
+// DuckDB native binaries (108 MB) are incompatible with Vercel serverless.
+// On Vercel, we use MongoDB for all storage domains including observability.
+let observabilityDomain: Record<string, any> | undefined;
+if (!isVercel) {
+  try {
+    const { DuckDBStore } = await import('@mastra/duckdb');
+    observabilityDomain = {
+      observability: new DuckDBStore({ path: './mastra.duckdb' }).observability,
+    };
+  } catch {
+    // DuckDB not available — skip silently
+  }
+}
+
+// ── Workspace (local-only) ────────────────────────────────────────────────────
+// LocalSandbox/LocalFilesystem require a persistent writable filesystem.
+// Vercel serverless functions are ephemeral and read-only (except /tmp).
+let globalWorkspace: any = undefined;
+if (!isVercel) {
+  try {
+    const ws = await import('./workspace/index');
+    globalWorkspace = ws.globalWorkspace;
+  } catch {
+    // Workspace not available — skip silently
+  }
+}
 
 // ── Original example ────────────────────────────────────────────────────────
 import { weatherWorkflow } from './workflows/weather-workflow';
@@ -40,7 +73,6 @@ import { agentScorers } from './scorers/agent-scorers';
 // ── Template Agents ──────────────────────────────────────────────────────────
 import { deepSearchAgent } from './agents/deep-search-agent';
 import { googleSheetsAgent } from './agents/google-sheets-agent';
-import { browserAgent } from './agents/browser-agent';
 import { textToSqlAgent } from './agents/text-to-sql-agent';
 import { pdfChatAgent } from './agents/pdf-chat-agent';
 import { flashCardsAgent } from './agents/flash-cards-agent';
@@ -57,13 +89,33 @@ import { reactNativeAgent } from './agents/react-native-agent';
 import { translationAgent } from './agents/translation-agent';
 import { studioChatAgent } from './agents/studio-chat-agent';
 
-// ── MCP ──────────────────────────────────────────────────────────────────────
-import { mastraMcpServer } from './mcp/server';
+// ── Browser Agent (local-only) ───────────────────────────────────────────────
+// @mastra/agent-browser pulls in Playwright (38 MB) — not available on Vercel.
+let browserAgent: any = undefined;
+if (!isVercel) {
+  try {
+    const mod = await import('./agents/browser-agent');
+    browserAgent = mod.browserAgent;
+  } catch {
+    // Browser agent not available — skip silently
+  }
+}
+
+// ── MCP Server ──────────────────────────────────────────────────────────────
+// The MCP server imports browserAgent, so it must also be conditionally loaded.
+let mastraMcpServer: any = undefined;
+if (!isVercel) {
+  try {
+    const mod = await import('./mcp/server');
+    mastraMcpServer = mod.mastraMcpServer;
+  } catch {
+    // MCP server not available — skip silently
+  }
+}
 
 // ── Template Workflows ───────────────────────────────────────────────────────
 import { deepSearchWorkflow } from './workflows/deep-search-workflow';
 import { customerFeedbackWorkflow } from './workflows/customer-feedback-workflow';
-import { browserWorkflow } from './workflows/browser-workflow';
 import { csvQuestionsWorkflow } from './workflows/csv-questions-workflow';
 import { docsChatbotWorkflow } from './workflows/docs-chatbot-workflow';
 import { flashCardsWorkflow } from './workflows/flash-cards-workflow';
@@ -78,12 +130,22 @@ import { videoIdeaGenWorkflow } from './workflows/video-idea-gen-workflow';
 import { youtubeChatWorkflow } from './workflows/youtube-chat-workflow';
 import { reactNativeWorkflow } from './workflows/react-native-workflow';
 
-// All storage domains (memory, observability, workflows, editor, etc.) backed by PostgreSQL.
-const allAgents = {
+// ── Browser Workflow (local-only) ────────────────────────────────────────────
+let browserWorkflow: any = undefined;
+if (!isVercel) {
+  try {
+    const mod = await import('./workflows/browser-workflow');
+    browserWorkflow = mod.browserWorkflow;
+  } catch {
+    // Browser workflow not available — skip silently
+  }
+}
+
+// ── Build agent and workflow registries ───────────────────────────────────────
+const allAgents: Record<string, any> = {
   'weather-agent': weatherAgent,
   'deep-search-agent': deepSearchAgent,
   'google-sheets-agent': googleSheetsAgent,
-  'browser-agent': browserAgent,
   'text-to-sql-agent': textToSqlAgent,
   'pdf-chat-agent': pdfChatAgent,
   'flash-cards-agent': flashCardsAgent,
@@ -101,22 +163,73 @@ const allAgents = {
   'studio-chat-agent': studioChatAgent,
 };
 
+// Conditionally include browser agent (not available on Vercel)
+if (browserAgent) {
+  allAgents['browser-agent'] = browserAgent;
+}
+
+const allWorkflows: Record<string, any> = {
+  weatherWorkflow,
+  deepSearchWorkflow,
+  customerFeedbackWorkflow,
+  csvQuestionsWorkflow,
+  docsChatbotWorkflow,
+  flashCardsWorkflow,
+  gemmaWorkflow,
+  githubPrWorkflow,
+  googleSheetsWorkflow,
+  mcpWorkflow,
+  pdfChatWorkflow,
+  slackWorkflow,
+  textToSqlWorkflow,
+  videoIdeaGenWorkflow,
+  youtubeChatWorkflow,
+  'react-native-workflow': reactNativeWorkflow,
+};
+
+// Conditionally include browser workflow (not available on Vercel)
+if (browserWorkflow) {
+  allWorkflows['browserWorkflow'] = browserWorkflow;
+}
+
+// ── Storage ─────────────────────────────────────────────────────────────────
+const mongodbUri = process.env.MONGODB_URI || 'mongodb+srv://backend-agents:Ct1GtVObDZ3UpL0r@awas.ieqeep7.mongodb.net/';
+const mongoStore = new MongoDBStore({
+  id: 'mastra-storage',
+  uri: mongodbUri,
+  url: mongodbUri,
+  dbName: process.env.MONGODB_DATABASE ?? 'mastra',
+});
+
+// On Vercel: MongoDB-only storage (no DuckDB native binaries)
+// Locally: composite storage with DuckDB for observability
+let storage: any;
+if (observabilityDomain) {
+  const { MastraCompositeStore } = await import('@mastra/core/storage');
+  storage = new MastraCompositeStore({
+    id: 'composite-storage',
+    default: mongoStore,
+    domains: observabilityDomain,
+  });
+} else {
+  storage = mongoStore;
+}
+
+// ── Mastra Instance ──────────────────────────────────────────────────────────
+// IMPORTANT: The `deployer: new VercelDeployer()` MUST be inline in the
+// Mastra constructor — the CLI does static analysis to detect the deployer
+// and won't find it if it's in a variable.
 export const mastra = new Mastra({
   deployer: new VercelDeployer(),
-  // ── Middleware ─────────────────────────────────────────────────────────────
-  // Runs on every incoming HTTP request to populate the RequestContext.
-  // Values set here are available in agents, workflows, and tools via the
-  // `requestContext` argument.
   server: {
     host: process.env.HOST || '0.0.0.0',
     port: Number(process.env.PORT) || 4111,
     timeout: 120000, // 2 minutes for long LLM responses
-    // Override via env vars — useful when ngrok URL changes
     studioHost: process.env.MASTRA_STUDIO_HOST,
     studioProtocol: (process.env.MASTRA_STUDIO_PROTOCOL as 'http' | 'https' | undefined),
     studioPort: Number(process.env.MASTRA_STUDIO_PORT) || undefined,
     cors: {
-      origin: (origin: string) => origin || '*', // Reflect origin for credentialed requests
+      origin: (origin: string) => origin || '*',
       allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowHeaders: [
         'Content-Type',
@@ -132,7 +245,6 @@ export const mastra = new Mastra({
     },
     middleware: async (c: any, next: any) => {
       try {
-        // Handle missing transportId query param on MCP routes to prevent MastraServer ZodError
         const origQuery = c.req.query.bind(c.req);
         c.req.query = (key?: string) => {
           if (key === 'transportId') {
@@ -173,85 +285,33 @@ export const mastra = new Mastra({
           requestContext.set('allow-commands', 'true');
         }
 
-        // Manual CORS headers removed: using native server.cors configuration instead
-
-        // IMPORTANT: Call next to continue the middleware chain
         await next();
       } catch (err) {
         console.error('Mastra Middleware Error:', err);
-        // Even on error, try to continue
         await next();
       }
     },
   },
 
-  // ── Global Workspace ───────────────────────────────────────────────────────
-  // Gives every agent file tools (read/write) + sandboxed shell execution.
-  // Agents that declare their own workspace (codeWorkspace, readonlyWorkspace)
-  // override this automatically.
-  workspace: globalWorkspace,
-  workflows: {
-    // Original
-    weatherWorkflow,
-    // Templates
-    deepSearchWorkflow,
-    customerFeedbackWorkflow,
-    browserWorkflow,
-    csvQuestionsWorkflow,
-    docsChatbotWorkflow,
-    flashCardsWorkflow,
-    gemmaWorkflow,
-    githubPrWorkflow,
-    googleSheetsWorkflow,
-    mcpWorkflow,
-    pdfChatWorkflow,
-    slackWorkflow,
-    textToSqlWorkflow,
-    videoIdeaGenWorkflow,
-    youtubeChatWorkflow,
-    'react-native-workflow': reactNativeWorkflow,
-  },
-  // Observability is configured at the Mastra root, so it applies to every
-  // agent registered in this object.
+  // ── Workspace (local-only) ──────────────────────────────────────────────
+  ...(globalWorkspace ? { workspace: globalWorkspace } : {}),
+
+  workflows: allWorkflows,
   agents: allAgents,
-  // ── MCP Servers ──────────────────────────────────────────────────────────
-  // Exposes all Mastra tools/agents/workflows via the Model Context Protocol.
-  // Accessible at: http://localhost:4111/api/mcp/mastra-tools-server/mcp
-  mcpServers: { mastraMcpServer },
-  // ── Editor ─────────────────────────────────────────────────────────────────
-  // Registers the editor so Studio shows the Editor tab on every agent.
-  // All 16 agents become editable: draft, publish, roll back, A/B test.
-  editor: editor as any,
-  // Global version defaults — override per-invocation or per-request as needed.
-  // Uncomment to pin agents to specific versions in production:
-  // versions: {
-  //   agents: {
-  //     'deep-search-agent': { status: 'published' },
-  //     'customer-feedback-agent': { status: 'published' },
-  //   },
-  // },
-  // ── Global scorer registry — powers the Evaluate dashboard in Mastra Studio ─
-  // Weather-specific scorers (tool call accuracy, completeness, translation)
-  // are kept for backward compatibility. Generic scorers (completeness,
-  // answerRelevance, toxicity) apply across all agents.
+
+  // ── MCP Servers (local-only) ────────────────────────────────────────────
+  ...(mastraMcpServer ? { mcpServers: { mastraMcpServer } } : {}),
+
+  // ── Editor (local-only) ─────────────────────────────────────────────────
+  ...(editor ? { editor: editor as any } : {}),
+
   scorers: {
     toolCallAppropriatenessScorer,
     completenessScorer,
     translationScorer,
     ...agentScorers,
   },
-  storage: new MastraCompositeStore({
-    id: 'composite-storage',
-    default: new MongoDBStore({
-      id: 'mastra-storage',
-      uri: process.env.MONGODB_URI || 'mongodb+srv://backend-agents:Ct1GtVObDZ3UpL0r@awas.ieqeep7.mongodb.net/',
-      url: process.env.MONGODB_URI || 'mongodb+srv://backend-agents:Ct1GtVObDZ3UpL0r@awas.ieqeep7.mongodb.net/',
-      dbName: process.env.MONGODB_DATABASE ?? 'mastra',
-    }),
-    domains: {
-      observability: new DuckDBStore({ path: process.env.VERCEL ? '/tmp/mastra.duckdb' : './mastra.duckdb' }).observability,
-    },
-  }),
+  storage,
   logger: new PinoLogger({
     name: 'Mastra',
     level: 'info',
@@ -267,16 +327,10 @@ export const mastra = new Mastra({
         spanOutputProcessors: [
           new SensitiveDataFilter(),
         ],
-        // ── Logging ──────────────────────────────────────────────────────────
-        // Dual-write logs to observability storage (DuckDB) so they appear
-        // correlated with traces in the Studio Traces view.
         logging: {
           enabled: true,
           level: 'info',
         },
-        // ── Request Context Keys ─────────────────────────────────────────────
-        // Automatically tag every span with these middleware-injected values
-        // so you can filter traces by user, tenant, or tier in Studio.
         requestContextKeys: [
           'user-id',
           'user-tier',
