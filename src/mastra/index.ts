@@ -1,5 +1,6 @@
 
 import { Mastra } from '@mastra/core/mastra';
+import { VercelDeployer } from '@mastra/deployer-vercel';
 import { PinoLogger } from '@mastra/loggers';
 import { MongoDBStore } from '@mastra/mongodb';
 import { DuckDBStore } from '@mastra/duckdb';
@@ -101,6 +102,7 @@ const allAgents = {
 };
 
 export const mastra = new Mastra({
+  deployer: new VercelDeployer(),
   // ── Middleware ─────────────────────────────────────────────────────────────
   // Runs on every incoming HTTP request to populate the RequestContext.
   // Values set here are available in agents, workflows, and tools via the
