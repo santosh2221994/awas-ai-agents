@@ -8,6 +8,7 @@
 		"prebuild": "node -e \"const v=process.versions.node.split('.').map(Number);if(v[0]<22){console.error('\\x1b[31mERROR: Node >=22 required. Current: '+process.version+'. Use: /opt/homebrew/bin/node\\x1b[0m');process.exit(1)}\"",
 		"dev": "mastra dev --request-context-presets ./request-context-presets.json",
 		"build": "mastra build -s",
+		"prestart": "npm run build",
 		"start": "MASTRA_DEV=true MASTRA_PACKAGES_FILE=.mastra/packages.json mastra start",
 		"typecheck": "tsc --noEmit",
 		"lint": "tsc --noEmit",
