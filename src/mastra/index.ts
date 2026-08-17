@@ -1,6 +1,5 @@
 
 import { Mastra } from '@mastra/core/mastra';
-import { VercelDeployer } from '@mastra/deployer-vercel';
 import { PinoLogger } from '@mastra/loggers';
 import { MongoDBStore } from '@mastra/mongodb';
 import { DuckDBStore } from '@mastra/duckdb';
@@ -102,14 +101,13 @@ const allAgents = {
 };
 
 export const mastra = new Mastra({
-  deployer: new VercelDeployer(),
   // ── Middleware ─────────────────────────────────────────────────────────────
   // Runs on every incoming HTTP request to populate the RequestContext.
   // Values set here are available in agents, workflows, and tools via the
   // `requestContext` argument.
   server: {
-    host: 'localhost',
-    port: 4111,
+    host: process.env.HOST || '0.0.0.0',
+    port: Number(process.env.PORT) || 4111,
     timeout: 120000, // 2 minutes for long LLM responses
     // Override via env vars — useful when ngrok URL changes
     studioHost: process.env.MASTRA_STUDIO_HOST,
