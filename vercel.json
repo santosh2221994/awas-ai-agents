@@ -1,12 +1,4 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "outputDirectory": ".mastra/output",
-  "framework": null,
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.mjs"
-    }
-  ]
+  "buildCommand": "npm run build"
 }

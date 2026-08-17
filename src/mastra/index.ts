@@ -1,5 +1,6 @@
 
 import { Mastra } from '@mastra/core/mastra';
+import { VercelDeployer } from '@mastra/deployer-vercel';
 import { PinoLogger } from '@mastra/loggers';
 import { MongoDBStore } from '@mastra/mongodb';
 import { DuckDBStore } from '@mastra/duckdb';
@@ -101,6 +102,7 @@ const allAgents = {
 };
 
 export const mastra = new Mastra({
+  deployer: new VercelDeployer(),
   // ── Middleware ─────────────────────────────────────────────────────────────
   // Runs on every incoming HTTP request to populate the RequestContext.
   // Values set here are available in agents, workflows, and tools via the
@@ -246,7 +248,7 @@ export const mastra = new Mastra({
       dbName: process.env.MONGODB_DATABASE ?? 'mastra',
     }),
     domains: {
-      observability: new DuckDBStore({ path: './mastra.duckdb' }).observability,
+      observability: new DuckDBStore({ path: process.env.VERCEL ? '/tmp/mastra.duckdb' : './mastra.duckdb' }).observability,
     },
   }),
   logger: new PinoLogger({
