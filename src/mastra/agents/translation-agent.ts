@@ -1,7 +1,6 @@
 import { Agent } from '@mastra/core/agent';
-import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
-import { defaultScorerConfig } from '../providers/model-helpers';
+import { getDefaultModel, defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
 export const translationAgent = new Agent({
@@ -21,13 +20,7 @@ Format your response as:
 **Transliteration (optional):** <romanized Hindi>
 
 If the input is already in Hindi or is not English, politely inform the user and ask for English text.`,
-  model: () => {
-    const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!key || key === 'your-google-api-key') {
-      return lmStudioModel();
-    }
-    return 'google/gemini-2.0-flash';
-  },
+  model: () => getDefaultModel(),
   memory: defaultMemory,
   tools: {},
   scorers: defaultScorerConfig(),

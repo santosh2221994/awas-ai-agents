@@ -3,23 +3,18 @@ import { weatherTool } from '../tools/weather-tool';
 
 import { defaultMemory } from '../memory';
 import { requestContextSchema } from '../context';
-import { lmStudioModel } from '../providers/lm-studio';
-import { localeInstruction, defaultScorerConfig } from '../providers/model-helpers';
+import { resolveAgentModel, localeInstruction, defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
-/** Model routing by tier — enterprise gets highest capacity, free gets flash. */
+/** Model routing by tier — enterprise gets highest capacity, free gets default. */
 const modelForTier = (tier: string | undefined) => {
-  const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  const isGoogleKeyMissing = !googleKey || googleKey === 'your-google-api-key';
-
   switch (tier) {
-    case 'enterprise': return lmStudioModel('google/gemma-4-e4b');
-    case 'pro':        return lmStudioModel('google/gemma-3-4b');
-    default:           
-      if (isGoogleKeyMissing) {
-        return lmStudioModel();
-      }
-      return 'google/gemini-2.0-flash';
+    case 'enterprise':
+      return resolveAgentModel('lm-studio:google/gemma-4-12b-qat');
+    case 'pro':
+      return resolveAgentModel('lm-studio:google/gemma-3-4b');
+    default:
+      return resolveAgentModel();
   }
 };
 

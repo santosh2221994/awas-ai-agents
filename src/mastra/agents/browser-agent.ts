@@ -2,9 +2,8 @@ import { Agent } from '@mastra/core/agent';
 import { codeWorkspace } from '../workspace';
 import { browser } from '../browsers';
 import { TokenLimiter, EnsureFinalResponseProcessor, UsageTrackerProcessor } from '../processors';
-import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
-import { lightScorerConfig } from '../providers/model-helpers';
+import { getDefaultModel, lightScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
 const BROWSER_MAX_STEPS = 15;
@@ -14,13 +13,7 @@ export const browserAgent = new Agent({
   name: 'Browser Agent',
   description: 'A real-browser web automation assistant powered by Playwright/Chromium.',
   workspace: codeWorkspace,
-  model: () => {
-    const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!key || key === 'your-google-api-key') {
-      return lmStudioModel();
-    }
-    return 'google/gemini-2.0-flash';
-  },
+  model: () => getDefaultModel(),
   memory: defaultMemory,
   browser,
   instructions: `You are a web automation assistant with full control of a real Chromium browser.

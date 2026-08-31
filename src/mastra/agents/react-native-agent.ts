@@ -1,7 +1,6 @@
 import { Agent } from '@mastra/core/agent';
-import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
-import { defaultScorerConfig } from '../providers/model-helpers';
+import { getDefaultModel, defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
 export const reactNativeAgent = new Agent({
@@ -20,13 +19,7 @@ Guidelines:
 - Wrap output in a single code block using \`\`\`tsx ... \`\`\`
 - If the prompt is ambiguous, make reasonable assumptions and note them briefly before the code block
 - Keep generated code concise — avoid excessive boilerplate or repeated comments`,
-  model: () => {
-    const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!key || key === 'your-google-api-key') {
-      return lmStudioModel();
-    }
-    return 'google/gemini-2.0-flash';
-  },
+  model: () => getDefaultModel(),
   memory: defaultMemory,
   scorers: defaultScorerConfig(),
   options: {

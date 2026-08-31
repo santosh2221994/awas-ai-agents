@@ -55,9 +55,20 @@ export function getDefaultModel(modelId?: string): string | ReturnType<typeof lm
  *   new TokenLimiter(getTokenLimit())
  */
 export function getTokenLimit(): number {
+  const activeProvider = (
+    process.env.DEFAULT_PROVIDER ||
+    process.env.MODEL_PROVIDER ||
+    GLOBAL_AGENT_CONFIG.defaultProvider ||
+    'auto'
+  ).toLowerCase();
+
+  if (activeProvider === 'lm-studio' || activeProvider === 'lmstudio') {
+    return parseInt(process.env.LM_STUDIO_CTX ?? '6000', 10);
+  }
+
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   const gatewayKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY;
-  const isLocal = (!key || key === 'your-google-api-key') && !gatewayKey;
+  const isLocal = (!key || key === 'your-google-api-key') && !gatewayKey && !process.env.GROQ_API_KEY;
   return isLocal
     ? parseInt(process.env.LM_STUDIO_CTX ?? '6000', 10)
     : 100_000;

@@ -16,35 +16,43 @@ import { createOpenAI } from '@ai-sdk/openai';
 const LM_STUDIO_BASE_URL =
   process.env.LM_STUDIO_BASE_URL ?? process.env.LMSTUDIO_BASE_URL ?? 'http://localhost:1234/v1';
 
+/** Helper to extract string content from string or content part array */
+function extractText(content: any): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => (typeof part === 'string' ? part : part?.text || ''))
+      .filter(Boolean)
+      .join('\n');
+  }
+  return '';
+}
+
 /**
- * Sanitizes a chat completions request body so it satisfies gemma-3-4b's
- * strict Jinja role-alternation template:
+ * Sanitizes a chat completions request body for local LLM servers (LM Studio / Ollama):
  *
- *  1. Collapse any `system` messages after position 0 into the preceding
- *     user/assistant turn as a content prefix (working-memory injections).
- *  2. Drop consecutive duplicate roles — keeps the LAST message of each run
- *     so no information is silently lost from the assistant side.
- *  3. Guarantee the sequence starts with `user`.
+ *  1. Preserves initial system instructions (role: 'system' at position 0).
+ *  2. Flattens mid-conversation system injections (e.g. working memory) into the adjacent user message.
+ *  3. Merges consecutive plain messages of the same role so role alternation is maintained without dropping content.
+ *  4. Preserves tool calls (role: 'assistant' with tool_calls) and tool responses (role: 'tool') untouched.
  */
 function sanitizeMessages(messages: any[]): any[] {
-  if (!Array.isArray(messages)) return messages;
+  if (!Array.isArray(messages) || messages.length === 0) return messages;
 
-  // Step 1: flatten mid-conversation system messages into adjacent user turns
+  // Step 1: Flatten any mid-conversation system messages into adjacent user turns
   const flattened: any[] = [];
-  for (const msg of messages) {
-    if (msg.role === 'system' && flattened.length > 0) {
-      // Append system content as a prefix to the next user message by
-      // buffering it; if the previous message was user, merge into it.
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    if (msg.role === 'system' && i > 0) {
       const prev = flattened[flattened.length - 1];
-      if (prev.role === 'user') {
+      if (prev && prev.role === 'user') {
+        const sysText = extractText(msg.content);
+        const prevText = extractText(prev.content);
         flattened[flattened.length - 1] = {
           ...prev,
-          content: `${msg.content}
-
-${prev.content}`,
+          content: sysText ? `${sysText}\n\n${prevText}` : prevText,
         };
       } else {
-        // Hold it — will be prepended to the next user message
         flattened.push({ ...msg, role: 'user' });
       }
     } else {
@@ -52,22 +60,29 @@ ${prev.content}`,
     }
   }
 
-  // Step 2: deduplicate consecutive same-role messages (keep last of each run)
-  const deduped: any[] = [];
+  // Step 2: Merge consecutive same-role text turns (except tool / tool_call turns)
+  const merged: any[] = [];
   for (const msg of flattened) {
-    if (deduped.length > 0 && deduped[deduped.length - 1].role === msg.role) {
-      deduped[deduped.length - 1] = msg;
+    const prev = merged[merged.length - 1];
+    const isToolRelated =
+      msg.role === 'tool' ||
+      prev?.role === 'tool' ||
+      Boolean(msg.tool_calls?.length) ||
+      Boolean(prev?.tool_calls?.length);
+
+    if (prev && prev.role === msg.role && !isToolRelated) {
+      const prevText = extractText(prev.content);
+      const currText = extractText(msg.content);
+      merged[merged.length - 1] = {
+        ...prev,
+        content: `${prevText}\n\n${currText}`.trim(),
+      };
     } else {
-      deduped.push(msg);
+      merged.push(msg);
     }
   }
 
-  // Step 3: must start with user
-  while (deduped.length > 0 && deduped[0].role !== 'user') {
-    deduped.shift();
-  }
-
-  return deduped;
+  return merged;
 }
 
 /**
@@ -76,15 +91,16 @@ ${prev.content}`,
  * Wraps fetch to sanitize message role ordering for strict Jinja templates.
  */
 export const lmStudio = createOpenAI({
-  apiKey: process.env.LM_STUDIO_API_KEY ?? 'lm-studio',
+  apiKey: process.env.LM_STUDIO_API_KEY ?? process.env.LMSTUDIO_API_KEY ?? 'lm-studio',
   baseURL: LM_STUDIO_BASE_URL,
   compatibility: 'compatible',
   fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
     try {
-      // AI SDK v3 passes a Request object as `input` with body already set.
-      // We need to clone it, read the body, sanitize, and rebuild.
       const req = input instanceof Request ? input : new Request(input, init);
       const raw = await req.text();
+      if (!raw) {
+        return fetch(input, init);
+      }
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed?.messages)) {
         parsed.messages = sanitizeMessages(parsed.messages);
@@ -104,17 +120,16 @@ export const lmStudio = createOpenAI({
 /**
  * Returns a LanguageModelV1 for the given LM Studio model ID.
  *
- * @param modelId  The model ID as shown in LM Studio (e.g. 'gemma-3-4b-it').
- *                 Defaults to the LM_STUDIO_MODEL env var or 'gemma-3-4b-it'.
+ * @param modelId  The model ID as shown in LM Studio (e.g. 'google/gemma-3-4b').
+ *                 Defaults to the LM_STUDIO_MODEL env var or 'google/gemma-3-4b'.
  *
  * @example
  *   model: lmStudioModel()                    // uses env default
- *   model: lmStudioModel('qwen2.5-7b-instruct')
+ *   model: lmStudioModel('google/gemma-3-4b')
  */
 export function lmStudioModel(modelId?: string) {
-  const id =
-    modelId ??
-    process.env.LM_STUDIO_MODEL ??
-    'google/gemma-3-4b';
-  return lmStudio.chat(id);
+  const rawId = modelId
+    ? modelId.replace(/^(lm-studio|lmstudio):/, '')
+    : process.env.LM_STUDIO_MODEL || 'google/gemma-3-4b';
+  return lmStudio.chat(rawId);
 }

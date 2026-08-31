@@ -1,8 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { requestContextSchema } from '../context';
-import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
-import { defaultScorerConfig } from '../providers/model-helpers';
+import { getDefaultModel, defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
 export const customerFeedbackAgent = new Agent({  id: 'customer-feedback-agent',
@@ -41,13 +40,7 @@ For each critical theme:
 A 3-paragraph summary suitable for a leadership report.
 
 Paste customer feedback below, or describe the source (support tickets, app reviews, surveys).`,
-  model: () => {
-    const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!key || key === 'your-google-api-key') {
-      return lmStudioModel();
-    }
-    return 'google/gemini-2.0-flash';
-  },
+  model: () => getDefaultModel(),
   memory: defaultMemory,
   requestContextSchema,
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────

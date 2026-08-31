@@ -1,9 +1,8 @@
 import { Agent } from '@mastra/core/agent';
 import { readonlyWorkspace } from '../workspace';
 import { getVideoMetaTool, getVideoTranscriptTool } from '../tools/youtube-tool';
-import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
-import { defaultScorerConfig } from '../providers/model-helpers';
+import { getDefaultModel, defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
 export const youtubeChatAgent = new Agent({  id: 'youtube-chat-agent',
@@ -35,13 +34,7 @@ Tips for users:
 - Say "give me chapter timestamps" for a full outline
 
 Note: Set YOUTUBE_API_KEY in .env for real video metadata.`,
-  model: () => {
-    const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!key || key === 'your-google-api-key') {
-      return lmStudioModel();
-    }
-    return 'google/gemini-2.0-flash';
-  },
+  model: () => getDefaultModel(),
   memory: defaultMemory,
   tools: { getVideoMetaTool, getVideoTranscriptTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────

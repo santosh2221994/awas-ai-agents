@@ -1,8 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { loadPdfTool, searchPdfTool } from '../tools/pdf-tool';
-import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
-import { defaultScorerConfig } from '../providers/model-helpers';
+import { getDefaultModel, defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
 export const flashCardsAgent = new Agent({  id: 'flash-cards-agent',
@@ -34,13 +33,7 @@ Card types to generate:
 4. Comparison cards: "What is the difference between X and Y?"
 
 After generating, offer to create a quiz from the flash cards.`,
-  model: () => {
-    const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!key || key === 'your-google-api-key') {
-      return lmStudioModel();
-    }
-    return 'google/gemini-2.0-flash';
-  },
+  model: () => getDefaultModel(),
   memory: defaultMemory,
   tools: { loadPdfTool, searchPdfTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────

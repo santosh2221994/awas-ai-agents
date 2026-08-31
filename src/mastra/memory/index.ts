@@ -19,10 +19,20 @@ import { Memory } from '@mastra/memory';
  */
 import { MongoDBStore } from '@mastra/mongodb';
 
+const activeProvider = (
+  process.env.DEFAULT_PROVIDER ||
+  process.env.MODEL_PROVIDER ||
+  'auto'
+).toLowerCase();
+
 const hasCloudKey =
   (process.env.GOOGLE_GENERATIVE_AI_API_KEY && process.env.GOOGLE_GENERATIVE_AI_API_KEY !== 'your-google-api-key') ||
   Boolean(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY);
-const isLocalMode = !hasCloudKey;
+
+const isLocalMode =
+  activeProvider === 'lm-studio' ||
+  activeProvider === 'lmstudio' ||
+  !hasCloudKey;
 
 const mongodbUri =
   process.env.MONGODB_URI ||

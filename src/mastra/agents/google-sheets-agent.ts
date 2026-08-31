@@ -1,8 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { readSheetTool, writeSheetTool } from '../tools/google-sheets-tool';
-import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
-import { defaultScorerConfig } from '../providers/model-helpers';
+import { getDefaultModel, defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
 export const googleSheetsAgent = new Agent({  id: 'google-sheets-agent',
@@ -29,13 +28,7 @@ To use a real spreadsheet:
 - Provide the spreadsheet ID (from the URL) when asking questions
 
 Currently using demo data if no API key is configured.`,
-  model: () => {
-    const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!key || key === 'your-google-api-key') {
-      return lmStudioModel();
-    }
-    return 'google/gemini-2.0-flash';
-  },
+  model: () => getDefaultModel(),
   memory: defaultMemory,
   tools: { readSheetTool, writeSheetTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────

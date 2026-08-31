@@ -2,12 +2,11 @@ import { Agent } from '@mastra/core/agent';
 import { z } from 'zod';
 import { codeWorkspace as _codeWorkspace } from '../workspace';
 import { getPrDiffTool, postReviewCommentTool } from '../tools/github-tool';
-import { lmStudioModel } from '../providers/lm-studio';
 import { TokenLimiter } from '../processors';
 import { RegexPIIRedactor } from '../processors';
 import { UsageTrackerProcessor } from '../processors';
 import { defaultMemory } from '../memory';
-import { lightScorerConfig } from '../providers/model-helpers';
+import { getDefaultModel, lightScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
 const prReviewInstructions = [
@@ -18,32 +17,34 @@ const prReviewInstructions = [
   '2. Analyze each changed file systematically',
   '3. Provide structured feedback',
   '4. Optionally post the review directly to GitHub with github-post-review',
+  '   (only when explicit approval is given).',
   '',
-  'Review framework:',
-  '**Summary** — What does this PR do? Overall assessment?',
-  '**Correctness** — Does the code do what it claims? Edge cases handled?',
-  '**Security** — Any injection risks, auth bypasses, or data exposure?',
-  '**Performance** — Any N+1 queries, unnecessary loops, memory leaks?',
-  '**Maintainability** — Is it readable? Well-named? Properly documented?',
-  '**Test Coverage** — Are there tests? Do they cover edge cases?',
+  'Structure your review as follows:',
+  '## Summary',
+  'Brief description of what this PR does and overall impression.',
   '',
-  'Specific Comments (per file):',
-  '  - Filename: [filename]',
-  '  - Line [N]: [issue description and suggested fix]',
+  '## Critical Issues (Must Fix)',
+  '- Bugs, edge cases, potential runtime exceptions',
+  '- Security vulnerabilities (injection, auth, data leakage)',
+  '- Performance regressions (N+1 queries, unindexed lookups)',
   '',
-  '**Verdict**: APPROVE | REQUEST_CHANGES | COMMENT',
+  '## Suggestions (Nice to Have)',
+  '- Code readability, naming, structure improvements',
+  '- Missing tests or edge cases to cover',
+  '- TypeScript type improvements',
   '',
-  'To review a PR, say: "Review PR #123 from owner/repo"',
-  'Set GITHUB_TOKEN in .env to post reviews directly to GitHub.',
+  '## Questions / Clarifications',
+  '- Anything unclear about the design choices',
+  '',
+  'Always cite specific file paths and line numbers in your review.',
 ].join('\n');
 
 export const githubPrAgent = new Agent({
-  id: 'GitHub PR Code Review Agent',
-  name: 'GitHub PR Code Review Agent',
-  description: 'Reviews GitHub pull requests: fetches diffs, analyzes code quality, security, performance, and posts structured feedback directly to GitHub.',
-  workspace: undefined, // uses globalWorkspace from Mastra instance
+  id: 'github-pr-agent',
+  name: 'GitHub PR Review Agent',
+  description: 'Reviews pull requests, identifies bugs, security issues, and suggests improvements.',
 
-  // ── Dynamic instructions — injects reviewer identity for attribution ────────
+  // ── Dynamic instructions — injects reviewer name ───────────────────────────
   instructions: async ({ requestContext }) => {
     const userId = requestContext?.get?.('user-id') as string | undefined;
     const attribution = userId
@@ -57,13 +58,7 @@ export const githubPrAgent = new Agent({
     'user-id': z.string().optional(),
   }),
 
-  model: () => {
-    const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!key || key === 'your-google-api-key') {
-      return lmStudioModel();
-    }
-    return 'google/gemini-2.0-flash';
-  },
+  model: () => getDefaultModel(),
   memory: defaultMemory,
   tools: { getPrDiffTool, postReviewCommentTool },
   inputProcessors: [

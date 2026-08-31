@@ -11,8 +11,6 @@
 import { groqModel } from '../providers/groq';
 import { lmStudioModel } from '../providers/lm-studio';
 import { TokenLimiter, ToolCallFilter, EnsureFinalResponseProcessor, UsageTrackerProcessor } from '../processors';
-import { genericCompletenessScorer, answerRelevanceScorer, toxicityScorer } from '../scorers/agent-scorers';
-
 export interface AgentGlobalConfig {
   /** Default provider mode: 'groq' | 'gemini' | 'lm-studio' | 'auto' */
   defaultProvider: 'groq' | 'gemini' | 'lm-studio' | 'auto';
@@ -28,7 +26,7 @@ export interface AgentGlobalConfig {
 
 /** Global agent settings — edit this single object to change model defaults for all agents */
 export const GLOBAL_AGENT_CONFIG: AgentGlobalConfig = {
-  defaultProvider: 'auto',
+  defaultProvider: ((process.env.DEFAULT_PROVIDER || process.env.MODEL_PROVIDER || 'auto') as AgentGlobalConfig['defaultProvider']),
   groqModelId: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
   geminiModelId: 'google/gemini-2.0-flash',
   lmStudioModelId: process.env.LM_STUDIO_MODEL || 'google/gemma-3-4b',
@@ -39,45 +37,96 @@ export const GLOBAL_AGENT_CONFIG: AgentGlobalConfig = {
  * Resolves the language model for an agent based on the global configuration
  * or an optional per-agent override.
  *
- * @param modelOverride  Optional explicit model string or provider prefix (e.g., 'groq:llama-3.3-70b-versatile', 'google/gemini-2.0-flash')
+ * @param modelOverride  Optional explicit model string or provider prefix (e.g., 'groq:llama-3.3-70b-versatile', 'lm-studio:google/gemma-3-4b', 'google/gemini-2.0-flash')
  *
  * @example
  *   model: () => resolveAgentModel()                                  // Uses global auto-resolution
  *   model: () => resolveAgentModel('groq:llama-3.1-8b-instant')       // Groq specific model
+ *   model: () => resolveAgentModel('lm-studio:google/gemma-3-4b')     // LM Studio specific model
  *   model: () => resolveAgentModel('google/gemini-2.0-flash')         // Gemini specific model
  */
 export function resolveAgentModel(modelOverride?: string) {
   if (modelOverride) {
     if (modelOverride.startsWith('groq:')) {
-      return groqModel(modelOverride.replace('groq:', ''));
+      return groqModel(modelOverride.replace(/^groq:/, ''));
     }
-    if (modelOverride.startsWith('lm-studio:')) {
-      return lmStudioModel(modelOverride.replace('lm-studio:', ''));
+    if (modelOverride.startsWith('lm-studio:') || modelOverride.startsWith('lmstudio:')) {
+      return lmStudioModel(modelOverride.replace(/^(lm-studio|lmstudio):/, ''));
     }
     return modelOverride;
   }
 
-  // 1. If Groq API Key is present, route to Groq with tool-calling supported model
-  if (process.env.GROQ_API_KEY) {
-    return groqModel(GLOBAL_AGENT_CONFIG.groqModelId);
+  const activeProvider = (
+    process.env.DEFAULT_PROVIDER ||
+    process.env.MODEL_PROVIDER ||
+    (typeof GLOBAL_AGENT_CONFIG !== 'undefined' ? GLOBAL_AGENT_CONFIG?.defaultProvider : 'auto') ||
+    'auto'
+  ).toLowerCase();
+
+  const lmStudioId =
+    (typeof GLOBAL_AGENT_CONFIG !== 'undefined' && GLOBAL_AGENT_CONFIG?.lmStudioModelId) ||
+    process.env.LM_STUDIO_MODEL ||
+    'google/gemma-3-4b';
+  const groqId =
+    (typeof GLOBAL_AGENT_CONFIG !== 'undefined' && GLOBAL_AGENT_CONFIG?.groqModelId) ||
+    process.env.GROQ_MODEL ||
+    'llama-3.3-70b-versatile';
+  const geminiId =
+    (typeof GLOBAL_AGENT_CONFIG !== 'undefined' && GLOBAL_AGENT_CONFIG?.geminiModelId) ||
+    'google/gemini-2.0-flash';
+
+  // 1. Explicit LM Studio Provider mode
+  if (activeProvider === 'lm-studio' || activeProvider === 'lmstudio') {
+    return lmStudioModel(lmStudioId);
   }
 
-  // 2. If Google API Key or AI Gateway Key is present, route to Gemini
+  // 2. Explicit Groq Provider mode
+  if (activeProvider === 'groq') {
+    return groqModel(groqId);
+  }
+
+  // 3. Explicit Gemini Provider mode
+  if (activeProvider === 'gemini' || activeProvider === 'google') {
+    return geminiId;
+  }
+
+  // 4. 'auto' mode fallback priority:
+  // (a) Groq API Key
+  if (process.env.GROQ_API_KEY) {
+    return groqModel(groqId);
+  }
+
+  // (b) Google API Key or AI Gateway Key
   const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   const gatewayKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY;
   if ((googleKey && googleKey !== 'your-google-api-key') || gatewayKey) {
-    return GLOBAL_AGENT_CONFIG.geminiModelId;
+    return geminiId;
   }
 
-  // 3. Fallback to local LM Studio / Ollama
-  return lmStudioModel(GLOBAL_AGENT_CONFIG.lmStudioModelId);
+  // (c) Fallback to local LM Studio
+  return lmStudioModel(lmStudioId);
 }
 
 /**
  * Returns standard processor pipeline for agents.
  */
 export function getAgentProcessors(maxSteps = 10, tokenLimit?: number) {
-  const limit = tokenLimit ?? (process.env.GROQ_API_KEY ? 100_000 : parseInt(process.env.LM_STUDIO_CTX ?? '6000', 10));
+  const activeProvider = (
+    process.env.DEFAULT_PROVIDER ||
+    process.env.MODEL_PROVIDER ||
+    (typeof GLOBAL_AGENT_CONFIG !== 'undefined' ? GLOBAL_AGENT_CONFIG?.defaultProvider : 'auto') ||
+    'auto'
+  ).toLowerCase();
+
+  const isLmStudio = activeProvider === 'lm-studio' || activeProvider === 'lmstudio';
+  const limit =
+    tokenLimit ??
+    (isLmStudio
+      ? parseInt(process.env.LM_STUDIO_CTX ?? '6000', 10)
+      : process.env.GROQ_API_KEY
+      ? 100_000
+      : parseInt(process.env.LM_STUDIO_CTX ?? '6000', 10));
+
   return {
     inputProcessors: [
       new ToolCallFilter(),
@@ -90,22 +139,4 @@ export function getAgentProcessors(maxSteps = 10, tokenLimit?: number) {
   };
 }
 
-/**
- * Returns central scorer registry configuration for Mastra agents.
- */
-export function getAgentScorers(sampleRate = 0.5) {
-  return {
-    completeness: {
-      scorer: genericCompletenessScorer,
-      sampling: { type: 'ratio' as const, rate: sampleRate },
-    },
-    answerRelevance: {
-      scorer: answerRelevanceScorer,
-      sampling: { type: 'ratio' as const, rate: sampleRate },
-    },
-    toxicity: {
-      scorer: toxicityScorer,
-      sampling: { type: 'ratio' as const, rate: sampleRate },
-    },
-  };
-}
+// (end of service)

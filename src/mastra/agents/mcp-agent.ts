@@ -25,10 +25,9 @@ import { dynamicWorkspace } from '../workspace';
 import { mcpClient } from '../mcp/client';
 import { TokenLimiter, EnsureFinalResponseProcessor, UsageTrackerProcessor } from '../processors';
 import { defaultMemory } from '../memory';
-import { lmStudioModel } from '../providers/lm-studio';
 import { skillListTool } from '../tools/skill-list-tool';
 import { requestContextSchema } from '../context';
-import { lightScorerConfig } from '../providers/model-helpers';
+import { getDefaultModel, lightScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
 const MCP_AGENT_MAX_STEPS = 12;
@@ -75,13 +74,7 @@ export const mcpAgent = new Agent({
   workspace: dynamicWorkspace,
   memory: defaultMemory,
 
-  model: () => {
-    const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!key || key === 'your-google-api-key') {
-      return lmStudioModel();
-    }
-    return 'google/gemini-2.0-flash';
-  },
+  model: () => getDefaultModel(),
 
   // ── Dynamic instructions — injects userId for attribution ─────────────────
   instructions: async ({ requestContext }) => {

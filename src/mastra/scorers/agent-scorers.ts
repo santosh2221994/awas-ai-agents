@@ -21,18 +21,11 @@ import {
   createAnswerRelevancyScorer,
   createToxicityScorer,
 } from '@mastra/evals/scorers/prebuilt';
-import { lmStudioModel } from '../providers/lm-studio';
+import { resolveAgentModel } from '../services/agent-config-service';
 
-// ── Judge model — same string format agents use ───────────────────────────────
-// When a Google key is set, use Gemini Flash (gateway string);
-// otherwise use the lmStudioModel() instance directly — plain model ID strings
-// are rejected by Mastra's gateway router which requires "provider/model" format.
+// ── Judge model ───────────────────────────────────────────────────────────────
 const judgeModel = (() => {
-  const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  if (key && key !== 'your-google-api-key') {
-    return 'google/gemini-2.0-flash' as const;
-  }
-  return lmStudioModel();
+  return resolveAgentModel();
 })();
 
 // ── Completeness ─────────────────────────────────────────────────────────────

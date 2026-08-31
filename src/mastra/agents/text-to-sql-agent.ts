@@ -1,8 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { listTablesTool, executeSqlTool } from '../tools/sql-tool';
-import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
-import { defaultScorerConfig } from '../providers/model-helpers';
+import { getDefaultModel, defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
 export const textToSqlAgent = new Agent({  id: 'text-to-sql-agent',
@@ -32,13 +31,7 @@ Example questions you can answer:
 - "What are the top 3 best-selling products?"
 - "Show all completed orders over $500"
 - "What is the total revenue by product?"`,
-  model: () => {
-    const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!key || key === 'your-google-api-key') {
-      return lmStudioModel();
-    }
-    return 'google/gemini-2.0-flash';
-  },
+  model: () => getDefaultModel(),
   memory: defaultMemory,
   tools: { listTablesTool, executeSqlTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────

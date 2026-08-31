@@ -1,10 +1,9 @@
 
 import { Agent } from '@mastra/core/agent';
 import { mcpClient } from '../mcp/client';
-import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
 import { requestContextSchema } from '../context';
-import { defaultScorerConfig } from '../providers/model-helpers';
+import { resolveAgentModel, defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
 /**
@@ -32,9 +31,7 @@ export const gemmaAgent = new Agent({
   name: 'Gemma Agent',
   description: 'An agent that uses the Gemma model from local LM Studio via MCP.',
 
-  // Chat Completions API via lmStudioModel() — fixes 'Invalid type for input' error
-  // that occurs when using the built-in openai/* strings (Responses API format).
-  model: lmStudioModel(),
+  model: () => resolveAgentModel('lm-studio:google/gemma-3-4b'),
 
   // Memory instance enables multi-turn conversation persistence
   memory: defaultMemory,

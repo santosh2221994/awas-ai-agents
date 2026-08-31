@@ -1,9 +1,8 @@
 import { Agent } from '@mastra/core/agent';
 import { z } from 'zod';
 import { listSlackChannelsTool, readSlackChannelTool, sendSlackMessageTool } from '../tools/slack-tool';
-import { lmStudioModel } from '../providers/lm-studio';
 import { defaultMemory } from '../memory';
-import { defaultScorerConfig } from '../providers/model-helpers';
+import { getDefaultModel, defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
 const BASE_INSTRUCTIONS = `You are an intelligent Slack assistant that helps manage and respond to Slack communications.
@@ -61,13 +60,7 @@ export const slackAgent = new Agent({
     'user-id':   z.string().optional(),
   }),
 
-  model: () => {
-    const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!key || key === 'your-google-api-key') {
-      return lmStudioModel();
-    }
-    return 'google/gemini-2.0-flash';
-  },
+  model: () => getDefaultModel(),
   memory: defaultMemory,
   tools: { listSlackChannelsTool, readSlackChannelTool, sendSlackMessageTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────
