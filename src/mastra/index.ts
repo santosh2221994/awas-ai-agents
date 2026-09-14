@@ -230,7 +230,7 @@ export const mastra = new Mastra({
     studioPort: Number(process.env.MASTRA_STUDIO_PORT) || undefined,
     cors: {
       origin: (origin: string) => origin || '*',
-      allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
       allowHeaders: [
         'Content-Type',
         'Authorization',
@@ -240,6 +240,9 @@ export const mastra = new Mastra({
         'x-allow-commands',
         'accept-language',
         'ngrok-skip-browser-warning',
+        'A2A-Version',
+        'x-mastra-client-type',
+        'x-mastra-dev-playground',
       ],
       credentials: true,
     },
