@@ -88,6 +88,7 @@ import { videoIdeaGenagent } from './agents/video-idea-gen0agent';
 import { reactNativeAgent } from './agents/react-native-agent';
 import { translationAgent } from './agents/translation-agent';
 import { studioChatAgent } from './agents/studio-chat-agent';
+import { agentBuilderAgent } from './agents/agent-builder-agent';
 
 // ── Browser Agent (local-only) ───────────────────────────────────────────────
 // @mastra/agent-browser pulls in Playwright (38 MB) — not available on Vercel.
@@ -161,6 +162,7 @@ const allAgents: Record<string, any> = {
   'react-native-agent': reactNativeAgent,
   'translation-agent': translationAgent,
   'studio-chat-agent': studioChatAgent,
+  'agent-builder-agent': agentBuilderAgent,
 };
 
 // Conditionally include browser agent (not available on Vercel)
