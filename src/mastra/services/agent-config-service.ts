@@ -45,7 +45,7 @@ export const GLOBAL_AGENT_CONFIG: AgentGlobalConfig = {
  *   model: () => resolveAgentModel('lm-studio:google/gemma-3-4b')     // LM Studio specific model
  *   model: () => resolveAgentModel('google/gemini-2.0-flash')         // Gemini specific model
  */
-export function resolveAgentModel(modelOverride?: string) {
+export function resolveAgentModel(modelOverride?: string, context?: any) {
   if (modelOverride) {
     if (modelOverride.startsWith('groq:')) {
       return groqModel(modelOverride.replace(/^groq:/, ''));
@@ -54,6 +54,22 @@ export function resolveAgentModel(modelOverride?: string) {
       return lmStudioModel(modelOverride.replace(/^(lm-studio|lmstudio):/, ''));
     }
     return modelOverride;
+  }
+
+  // Check dynamic requestContext if passed by Mastra agent execution
+  const reqContext = context?.requestContext || (typeof context?.get === 'function' ? context : undefined);
+  const contextProvider = (reqContext?.get?.('provider-id') as string | undefined)?.toLowerCase();
+  const contextModel = reqContext?.get?.('model-id') as string | undefined;
+  const contextBaseUrl = reqContext?.get?.('llm-base-url') as string | undefined;
+
+  if (contextProvider === 'lm-studio' || contextProvider === 'lmstudio') {
+    return lmStudioModel(contextModel || 'google/gemma-3-4b', contextBaseUrl);
+  }
+  if (contextProvider === 'groq' && contextModel) {
+    return groqModel(contextModel);
+  }
+  if (contextProvider === 'gemini' && contextModel) {
+    return contextModel;
   }
 
   const activeProvider = (

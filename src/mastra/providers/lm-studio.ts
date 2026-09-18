@@ -14,7 +14,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 
 /** Base URL for the local LM Studio server. Override via env var if needed. */
 const LM_STUDIO_BASE_URL =
-  process.env.LM_STUDIO_BASE_URL ?? process.env.LMSTUDIO_BASE_URL ?? 'http://localhost:1234/v1';
+  process.env.LM_STUDIO_BASE_URL ?? process.env.LMSTUDIO_BASE_URL ?? 'http://127.0.0.1:1234/v1';
 
 /** Helper to extract string content from string or content part array */
 function extractText(content: any): string {
@@ -117,19 +117,65 @@ export const lmStudio = createOpenAI({
   },
 } as any);
 
+const providerCache = new Map<string, any>();
+
+/**
+ * Returns an OpenAI-compatible provider for LM Studio at the given base URL.
+ */
+export function getLmStudioProvider(customBaseUrl?: string) {
+  const url = (customBaseUrl || LM_STUDIO_BASE_URL).replace(/\/+$/, '');
+  const finalUrl = url.endsWith('/v1') ? url : `${url}/v1`;
+
+  if (providerCache.has(finalUrl)) {
+    return providerCache.get(finalUrl);
+  }
+
+  const provider = createOpenAI({
+    apiKey: process.env.LM_STUDIO_API_KEY ?? process.env.LMSTUDIO_API_KEY ?? 'lm-studio',
+    baseURL: finalUrl,
+    compatibility: 'compatible',
+    fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+      try {
+        const req = input instanceof Request ? input : new Request(input, init);
+        const raw = await req.text();
+        if (!raw) {
+          return fetch(input, init);
+        }
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed?.messages)) {
+          parsed.messages = sanitizeMessages(parsed.messages);
+        }
+        return fetch(req.url, {
+          method: req.method,
+          headers: req.headers,
+          body: JSON.stringify(parsed),
+        });
+      } catch {
+        return fetch(input, init);
+      }
+    },
+  } as any);
+
+  providerCache.set(finalUrl, provider);
+  return provider;
+}
+
 /**
  * Returns a LanguageModelV1 for the given LM Studio model ID.
  *
  * @param modelId  The model ID as shown in LM Studio (e.g. 'google/gemma-3-4b').
  *                 Defaults to the LM_STUDIO_MODEL env var or 'google/gemma-3-4b'.
+ * @param baseUrl  Optional custom base URL (e.g. 'http://127.0.0.1:1234/v1').
  *
  * @example
  *   model: lmStudioModel()                    // uses env default
  *   model: lmStudioModel('google/gemma-3-4b')
+ *   model: lmStudioModel('google/gemma-3-4b', 'http://127.0.0.1:1234/v1')
  */
-export function lmStudioModel(modelId?: string) {
+export function lmStudioModel(modelId?: string, baseUrl?: string) {
   const rawId = modelId
     ? modelId.replace(/^(lm-studio|lmstudio):/, '')
     : process.env.LM_STUDIO_MODEL || 'google/gemma-3-4b';
-  return lmStudio.chat(rawId);
+  const provider = baseUrl ? getLmStudioProvider(baseUrl) : lmStudio;
+  return provider.chat(rawId);
 }
