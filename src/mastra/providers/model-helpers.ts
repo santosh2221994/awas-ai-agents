@@ -40,8 +40,8 @@ export function getFallbackModel(modelId?: string) {
  *   model: () => getDefaultModel()
  *   model: () => getDefaultModel('llama-3.3-70b-versatile')
  */
-export function getDefaultModel(modelId?: string): string | ReturnType<typeof lmStudioModel> | ReturnType<typeof groqModel> {
-  return resolveAgentModel(modelId);
+export function getDefaultModel(modelId?: string, context?: any): string | ReturnType<typeof lmStudioModel> | ReturnType<typeof groqModel> {
+  return resolveAgentModel(modelId, context);
 }
 
 // ── Token limits ──────────────────────────────────────────────────────────────

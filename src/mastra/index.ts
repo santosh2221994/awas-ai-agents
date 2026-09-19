@@ -89,6 +89,7 @@ import { reactNativeAgent } from './agents/react-native-agent';
 import { translationAgent } from './agents/translation-agent';
 import { studioChatAgent } from './agents/studio-chat-agent';
 import { agentBuilderAgent } from './agents/agent-builder-agent';
+import { createDynamicAgent } from './agents/dynamic-agent-factory';
 
 // ── Browser Agent (local-only) ───────────────────────────────────────────────
 // @mastra/agent-browser pulls in Playwright (38 MB) — not available on Vercel.
@@ -159,6 +160,7 @@ const allAgents: Record<string, any> = {
   'mcp-agent': mcpAgent,
   'gemma-agent': gemmaAgent,
   'video-idea-gen-agent': videoIdeaGenagent,
+  'video-idea-gen0agent': videoIdeaGenagent,
   'react-native-agent': reactNativeAgent,
   'translation-agent': translationAgent,
   'studio-chat-agent': studioChatAgent,
@@ -169,6 +171,38 @@ const allAgents: Record<string, any> = {
 if (browserAgent) {
   allAgents['browser-agent'] = browserAgent;
 }
+
+// Wrap allAgents in a dynamic proxy so any runtime lookup for custom/dynamic agents auto-provisions
+export const dynamicAgentsRegistry: Record<string, any> = new Proxy(allAgents, {
+  get(target, prop, receiver) {
+    if (typeof prop === 'string') {
+      if (prop in target) {
+        return target[prop];
+      }
+      if (prop === 'agent-builder-agent') {
+        target[prop] = agentBuilderAgent;
+        return agentBuilderAgent;
+      }
+      if (prop === 'video-idea-gen0agent') {
+        target[prop] = videoIdeaGenagent;
+        return videoIdeaGenagent;
+      }
+      // On-demand dynamic agent provisioning
+      if (prop.startsWith('custom-') || prop.startsWith('agent-') || prop.startsWith('wf-')) {
+        const dynamic = createDynamicAgent(prop);
+        target[prop] = dynamic;
+        return dynamic;
+      }
+    }
+    return Reflect.get(target, prop, receiver);
+  },
+  has(target, prop) {
+    if (typeof prop === 'string' && (prop in target || prop.startsWith('custom-') || prop === 'agent-builder-agent')) {
+      return true;
+    }
+    return Reflect.has(target, prop);
+  },
+});
 
 const allWorkflows: Record<string, any> = {
   weatherWorkflow,
@@ -232,7 +266,7 @@ export const mastra = new Mastra({
     studioPort: Number(process.env.MASTRA_STUDIO_PORT) || undefined,
     cors: {
       origin: (origin: string) => origin || '*',
-      allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
       allowHeaders: [
         'Content-Type',
         'Authorization',
@@ -240,8 +274,14 @@ export const mastra = new Mastra({
         'x-user-tier',
         'x-tenant-id',
         'x-allow-commands',
+        'x-provider-id',
+        'x-model-id',
+        'x-llm-base-url',
         'accept-language',
         'ngrok-skip-browser-warning',
+        'A2A-Version',
+        'x-mastra-client-type',
+        'x-mastra-dev-playground',
       ],
       credentials: true,
     },
@@ -261,6 +301,9 @@ export const mastra = new Mastra({
         const acceptLanguage = c.req.header('accept-language');
         const country = c.req.header('cf-ipcountry');
         const allowCommands = c.req.header('x-allow-commands');
+        const providerId = c.req.header('x-provider-id');
+        const modelId = c.req.header('x-model-id');
+        const llmBaseUrl = c.req.header('x-llm-base-url');
 
         let requestContext = c.get('requestContext');
         if (!requestContext || typeof requestContext.set !== 'function') {
@@ -271,6 +314,10 @@ export const mastra = new Mastra({
         if (userId) requestContext.set('user-id', userId);
         if (tier) requestContext.set('user-tier', tier);
         if (tenantId) requestContext.set('tenant-id', tenantId);
+
+        if (providerId) requestContext.set('provider-id', providerId);
+        if (modelId) requestContext.set('model-id', modelId);
+        if (llmBaseUrl) requestContext.set('llm-base-url', llmBaseUrl);
 
         if (acceptLanguage) {
           requestContext.set('locale', acceptLanguage.split(',')[0].trim());
@@ -287,6 +334,31 @@ export const mastra = new Mastra({
           requestContext.set('allow-commands', 'true');
         }
 
+        // ── Dynamic agent provisioning on request ─────────────────────────────
+        const reqPath = c.req.path || c.req.url || '';
+        const agentMatch = reqPath.match(/^\/api\/agents\/([^/?#]+)/);
+        if (agentMatch) {
+          const requestedAgentId = decodeURIComponent(agentMatch[1]);
+          if (requestedAgentId && typeof mastra !== 'undefined' && mastra) {
+            let exists = false;
+            try {
+              exists = Boolean(mastra.getAgentById(requestedAgentId) || mastra.getAgent(requestedAgentId));
+            } catch { }
+
+            if (!exists) {
+              try {
+                const dynamicAgent = createDynamicAgent(requestedAgentId);
+                allAgents[requestedAgentId] = dynamicAgent;
+                if (typeof mastra.addAgent === 'function') {
+                  mastra.addAgent(dynamicAgent, requestedAgentId);
+                }
+              } catch (e: any) {
+                console.warn(`[Mastra Middleware] Auto-provision note for ${requestedAgentId}:`, e.message);
+              }
+            }
+          }
+        }
+
         await next();
       } catch (err) {
         console.error('Mastra Middleware Error:', err);
@@ -299,7 +371,7 @@ export const mastra = new Mastra({
   ...(globalWorkspace ? { workspace: globalWorkspace } : {}),
 
   workflows: allWorkflows,
-  agents: allAgents,
+  agents: dynamicAgentsRegistry,
 
   // ── MCP Servers (local-only) ────────────────────────────────────────────
   ...(mastraMcpServer ? { mcpServers: { mastraMcpServer } } : {}),
@@ -338,6 +410,9 @@ export const mastra = new Mastra({
           'user-tier',
           'tenant-id',
           'locale',
+          'provider-id',
+          'model-id',
+          'llm-base-url',
         ],
       },
     },

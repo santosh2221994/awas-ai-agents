@@ -48,7 +48,7 @@ export const studioChatAgent = new Agent({
   // ── Context schema ────────────────────────────────────────────────────────
   requestContextSchema,
 
-  model: () => getDefaultModel(),
+  model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
 
   tools: {
     skillListTool,

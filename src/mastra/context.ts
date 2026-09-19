@@ -16,6 +16,9 @@ export const requestContextSchema = z.object({
   'locale': z.string().optional(),
   'temperature-unit': z.enum(['celsius', 'fahrenheit']).optional(),
   'allow-commands': z.enum(['true', 'false']).optional(),
+  'provider-id': z.string().optional(),
+  'model-id': z.string().optional(),
+  'llm-base-url': z.string().optional(),
 });
 
 export type RequestContext = z.infer<typeof requestContextSchema>;
