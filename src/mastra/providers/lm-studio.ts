@@ -163,19 +163,19 @@ export function getLmStudioProvider(customBaseUrl?: string) {
 /**
  * Returns a LanguageModelV1 for the given LM Studio model ID.
  *
- * @param modelId  The model ID as shown in LM Studio (e.g. 'google/gemma-3-4b').
- *                 Defaults to the LM_STUDIO_MODEL env var or 'google/gemma-3-4b'.
+ * @param modelId  The model ID as shown in LM Studio (e.g. 'mistral-7b-instruct-v0.2').
+ *                 Defaults to the LM_STUDIO_MODEL env var or 'mistral-7b-instruct-v0.2'.
  * @param baseUrl  Optional custom base URL (e.g. 'http://127.0.0.1:1234/v1').
  *
  * @example
  *   model: lmStudioModel()                    // uses env default
- *   model: lmStudioModel('google/gemma-3-4b')
- *   model: lmStudioModel('google/gemma-3-4b', 'http://127.0.0.1:1234/v1')
+ *   model: lmStudioModel('mistral-7b-instruct-v0.2')
+ *   model: lmStudioModel('mistral-7b-instruct-v0.2', 'http://127.0.0.1:1234/v1')
  */
 export function lmStudioModel(modelId?: string, baseUrl?: string) {
   const rawId = modelId
     ? modelId.replace(/^(lm-studio|lmstudio):/, '')
-    : process.env.LM_STUDIO_MODEL || 'google/gemma-3-4b';
+    : process.env.LM_STUDIO_MODEL || 'mistral-7b-instruct-v0.2';
   const provider = baseUrl ? getLmStudioProvider(baseUrl) : lmStudio;
   return provider.chat(rawId);
 }

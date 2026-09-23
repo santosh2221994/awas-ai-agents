@@ -299,6 +299,36 @@ export const generateCanvasWorkflowTool = createTool({
       }
     }
 
+    // ── 2.5. Validate condition nodes ──────────────────────────────────────
+    const outgoingEdgesMap: Record<string, typeof input.edges> = {};
+    for (const e of input.edges) {
+      if (!outgoingEdgesMap[e.source]) outgoingEdgesMap[e.source] = [];
+      outgoingEdgesMap[e.source].push(e);
+    }
+
+    for (const node of input.nodes) {
+      if (node.type === 'condition') {
+        const outEdges = outgoingEdgesMap[node.id] ?? [];
+        if (outEdges.length === 0) {
+          return {
+            workflowId: input.workflowId,
+            workflowName: input.workflowName,
+            description: input.description,
+            version: input.version,
+            executionMode: input.executionMode,
+            tags: input.tags,
+            nodeCount: input.nodes.length,
+            edgeCount: input.edges.length,
+            positions: {},
+            canvasDefinition: {},
+            mermaidDiagram: '',
+            status: 'validation-error' as const,
+            message: `Condition node "${node.id}" (${node.label}) must have at least one outgoing branch edge.`,
+          };
+        }
+      }
+    }
+
     // ── 3. Auto-layout ─────────────────────────────────────────────────────
     const positions = autoLayout(input.nodes, input.edges);
 

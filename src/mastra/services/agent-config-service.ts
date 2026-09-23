@@ -29,7 +29,7 @@ export const GLOBAL_AGENT_CONFIG: AgentGlobalConfig = {
   defaultProvider: ((process.env.DEFAULT_PROVIDER || process.env.MODEL_PROVIDER || 'auto') as AgentGlobalConfig['defaultProvider']),
   groqModelId: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
   geminiModelId: 'google/gemini-2.0-flash',
-  lmStudioModelId: process.env.LM_STUDIO_MODEL || 'google/gemma-3-4b',
+  lmStudioModelId: process.env.LM_STUDIO_MODEL || 'mistral-7b-instruct-v0.2',
   defaultTokenLimit: 100_000,
 };
 
@@ -37,12 +37,12 @@ export const GLOBAL_AGENT_CONFIG: AgentGlobalConfig = {
  * Resolves the language model for an agent based on the global configuration
  * or an optional per-agent override.
  *
- * @param modelOverride  Optional explicit model string or provider prefix (e.g., 'groq:llama-3.3-70b-versatile', 'lm-studio:google/gemma-3-4b', 'google/gemini-2.0-flash')
+ * @param modelOverride  Optional explicit model string or provider prefix (e.g., 'groq:llama-3.3-70b-versatile', 'mistral-7b-instruct-v0.2', 'google/gemini-2.0-flash')
  *
  * @example
  *   model: () => resolveAgentModel()                                  // Uses global auto-resolution
  *   model: () => resolveAgentModel('groq:llama-3.1-8b-instant')       // Groq specific model
- *   model: () => resolveAgentModel('lm-studio:google/gemma-3-4b')     // LM Studio specific model
+ *   model: () => resolveAgentModel('mistral-7b-instruct-v0.2')        // LM Studio specific model
  *   model: () => resolveAgentModel('google/gemini-2.0-flash')         // Gemini specific model
  */
 export function resolveAgentModel(modelOverride?: string, context?: any) {
@@ -52,6 +52,9 @@ export function resolveAgentModel(modelOverride?: string, context?: any) {
     }
     if (modelOverride.startsWith('lm-studio:') || modelOverride.startsWith('lmstudio:')) {
       return lmStudioModel(modelOverride.replace(/^(lm-studio|lmstudio):/, ''));
+    }
+    if (modelOverride.includes('mistral') || modelOverride.includes('gemma') || modelOverride.includes('nemotron') || modelOverride.includes('llama')) {
+      return lmStudioModel(modelOverride);
     }
     return modelOverride;
   }
@@ -101,58 +104,22 @@ export function resolveAgentModel(modelOverride?: string, context?: any) {
     return groqModel(groqId);
   }
 
-  // 3. Explicit Gemini Provider mode
+  // 3. Explicit Gemini / Google Provider mode
   if (activeProvider === 'gemini' || activeProvider === 'google') {
     return geminiId;
   }
 
-  // 4. 'auto' mode fallback priority:
-  // (a) Groq API Key
-  if (process.env.GROQ_API_KEY) {
-    return groqModel(groqId);
-  }
+  // 4. Auto mode: Google Gemini API key check
+  const hasGoogleKey = Boolean(
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY &&
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY.trim() !== '' &&
+    !process.env.GOOGLE_GENERATIVE_AI_API_KEY.includes('your_')
+  );
 
-  // (b) Google API Key or AI Gateway Key
-  const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  const gatewayKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY;
-  if ((googleKey && googleKey !== 'your-google-api-key') || gatewayKey) {
+  if (hasGoogleKey) {
     return geminiId;
   }
 
-  // (c) Fallback to local LM Studio
+  // 5. Fallback: LM Studio local model
   return lmStudioModel(lmStudioId);
 }
-
-/**
- * Returns standard processor pipeline for agents.
- */
-export function getAgentProcessors(maxSteps = 10, tokenLimit?: number) {
-  const activeProvider = (
-    process.env.DEFAULT_PROVIDER ||
-    process.env.MODEL_PROVIDER ||
-    (typeof GLOBAL_AGENT_CONFIG !== 'undefined' ? GLOBAL_AGENT_CONFIG?.defaultProvider : 'auto') ||
-    'auto'
-  ).toLowerCase();
-
-  const isLmStudio = activeProvider === 'lm-studio' || activeProvider === 'lmstudio';
-  const limit =
-    tokenLimit ??
-    (isLmStudio
-      ? parseInt(process.env.LM_STUDIO_CTX ?? '6000', 10)
-      : process.env.GROQ_API_KEY
-      ? 100_000
-      : parseInt(process.env.LM_STUDIO_CTX ?? '6000', 10));
-
-  return {
-    inputProcessors: [
-      new ToolCallFilter(),
-      new TokenLimiter(limit),
-      new EnsureFinalResponseProcessor(maxSteps),
-    ],
-    outputProcessors: [
-      new UsageTrackerProcessor(),
-    ],
-  };
-}
-
-// (end of service)

@@ -55,23 +55,15 @@ export function getDefaultModel(modelId?: string, context?: any): string | Retur
  *   new TokenLimiter(getTokenLimit())
  */
 export function getTokenLimit(): number {
-  const activeProvider = (
-    process.env.DEFAULT_PROVIDER ||
-    process.env.MODEL_PROVIDER ||
-    GLOBAL_AGENT_CONFIG.defaultProvider ||
-    'auto'
-  ).toLowerCase();
-
-  if (activeProvider === 'lm-studio' || activeProvider === 'lmstudio') {
-    return parseInt(process.env.LM_STUDIO_CTX ?? '6000', 10);
-  }
+  const envCtx = process.env.LM_STUDIO_CTX ? parseInt(process.env.LM_STUDIO_CTX, 10) : NaN;
+  if (!isNaN(envCtx) && envCtx > 0) return envCtx;
 
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   const gatewayKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY;
-  const isLocal = (!key || key === 'your-google-api-key') && !gatewayKey && !process.env.GROQ_API_KEY;
-  return isLocal
-    ? parseInt(process.env.LM_STUDIO_CTX ?? '6000', 10)
-    : 100_000;
+  const isCloud = (key && key !== 'your-google-api-key') || gatewayKey || process.env.GROQ_API_KEY;
+  
+  // For local LM Studio, default context limit is 7,500 to comfortably fit under LM Studio's 8,192 (n_ctx) window
+  return isCloud ? 100_000 : 7_500;
 }
 
 // ── Locale instructions ───────────────────────────────────────────────────────

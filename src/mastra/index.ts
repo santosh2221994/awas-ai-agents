@@ -258,15 +258,15 @@ if (observabilityDomain) {
 export const mastra = new Mastra({
   deployer: new VercelDeployer(),
   server: {
-    host: process.env.HOST || '0.0.0.0',
+    host: process.env.HOST || '127.0.0.1',
     port: Number(process.env.PORT) || 4111,
     timeout: 120000, // 2 minutes for long LLM responses
     studioHost: process.env.MASTRA_STUDIO_HOST,
     studioProtocol: (process.env.MASTRA_STUDIO_PROTOCOL as 'http' | 'https' | undefined),
     studioPort: Number(process.env.MASTRA_STUDIO_PORT) || undefined,
     cors: {
-      origin: (origin: string) => origin || '*',
-      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+      origin: (origin: string) => origin || 'http://localhost:4111',
+      allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowHeaders: [
         'Content-Type',
         'Authorization',
@@ -289,10 +289,14 @@ export const mastra = new Mastra({
       try {
         const origQuery = c.req.query.bind(c.req);
         c.req.query = (key?: string) => {
+          if (!key) {
+            const all = origQuery() || {};
+            return { transportId: 'sse', ...all };
+          }
           if (key === 'transportId') {
             return origQuery('transportId') || 'sse';
           }
-          return origQuery(key as any);
+          return origQuery(key);
         };
 
         const userId = c.req.header('x-user-id');
