@@ -18,8 +18,17 @@ import { readSheetTool, writeSheetTool } from '../tools/google-sheets-tool';
 import { getPrDiffTool, postReviewCommentTool } from '../tools/github-tool';
 import { listSlackChannelsTool, readSlackChannelTool, sendSlackMessageTool } from '../tools/slack-tool';
 import { getVideoMetaTool, getVideoTranscriptTool } from '../tools/youtube-tool';
+import { browseUrlTool, searchWebTool, extractPageDataTool } from '../tools/browser-tool';
 
 export const AVAILABLE_TOOLS_MAP: Record<string, any> = {
+  browseUrlTool,
+  searchWebTool,
+  extractPageDataTool,
+  'browser-tool': browseUrlTool,
+  'browser_tool': browseUrlTool,
+  'browser-read-url': browseUrlTool,
+  'browser-web-search': searchWebTool,
+  'browser-extract-data': extractPageDataTool,
   skillListTool,
   'skill-list-tool': skillListTool,
   'skill_list': skillListTool,
@@ -28,8 +37,10 @@ export const AVAILABLE_TOOLS_MAP: Record<string, any> = {
   'exa-search': exaSearchTool,
   calculatorWithUITool,
   'calculator-ui-tool': calculatorWithUITool,
+  'calculator_with_ui': calculatorWithUITool,
   weatherTool,
   'weather-tool': weatherTool,
+  'get-weather': weatherTool,
   listTablesTool,
   executeSqlTool,
   'sql-tool': executeSqlTool,

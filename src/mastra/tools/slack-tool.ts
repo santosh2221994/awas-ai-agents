@@ -7,20 +7,29 @@ import { z } from 'zod';
 // Without it, returns mock data.
 // ---------------------------------------------------------------------------
 
+import { withRetry } from './tool-helper';
+
 const SLACK_BASE = 'https://slack.com/api';
 
 async function slackFetch(method: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
   const token = process.env.SLACK_BOT_TOKEN;
   if (!token) throw new Error('SLACK_BOT_TOKEN not set');
-  const res = await fetch(`${SLACK_BASE}/${method}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(8000),
-  });
-  const data = await res.json() as Record<string, unknown>;
-  if (!data['ok']) throw new Error(`Slack API error: ${data['error']}`);
-  return data;
+
+  return withRetry(async () => {
+    const res = await fetch(`${SLACK_BASE}/${method}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(8000),
+    });
+    const data = await res.json() as Record<string, unknown>;
+    if (!data['ok']) {
+      const err: any = new Error(`Slack API error: ${data['error']}`);
+      if (data['error'] === 'ratelimited') err.status = 429;
+      throw err;
+    }
+    return data;
+  }, { maxRetries: 2, initialDelayMs: 500 });
 }
 
 export const listSlackChannelsTool = createTool({

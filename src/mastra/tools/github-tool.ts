@@ -6,13 +6,26 @@ import { z } from 'zod';
 // Set GITHUB_TOKEN in .env for live access. Stub data without it.
 // ---------------------------------------------------------------------------
 
+import { withRetry } from './tool-helper';
+
 async function githubFetch(path: string, options?: RequestInit): Promise<unknown> {
   const token = process.env.GITHUB_TOKEN;
   const headers: Record<string, string> = { Accept: 'application/vnd.github.v3+json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`https://api.github.com${path}`, { ...options, headers: { ...headers, ...(options?.headers ?? {}) }, signal: AbortSignal.timeout(10000) });
-  if (!res.ok) throw new Error(`GitHub API error: ${res.status} ${res.statusText}`);
-  return res.json();
+
+  return withRetry(async () => {
+    const res = await fetch(`https://api.github.com${path}`, {
+      ...options,
+      headers: { ...headers, ...(options?.headers ?? {}) },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      const err: any = new Error(`GitHub API error: ${res.status} ${res.statusText}`);
+      err.status = res.status;
+      throw err;
+    }
+    return res.json();
+  }, { maxRetries: 2, initialDelayMs: 600 });
 }
 
 const DEMO_DIFF = `diff --git a/src/api/users.ts b/src/api/users.ts

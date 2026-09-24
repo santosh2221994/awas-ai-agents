@@ -90,6 +90,12 @@ import { translationAgent } from './agents/translation-agent';
 import { studioChatAgent } from './agents/studio-chat-agent';
 import { agentBuilderAgent } from './agents/agent-builder-agent';
 import { createDynamicAgent } from './agents/dynamic-agent-factory';
+import {
+  getToolsCatalogue,
+  executeToolById,
+  registerAgentInRuntime,
+  unregisterAgentInRuntime,
+} from './internal-api';
 
 // ── Browser Agent (local-only) ───────────────────────────────────────────────
 // @mastra/agent-browser pulls in Playwright (38 MB) — not available on Vercel.
@@ -334,8 +340,49 @@ export const mastra = new Mastra({
           requestContext.set('allow-commands', 'true');
         }
 
-        // ── Dynamic agent provisioning on request ─────────────────────────────
         const reqPath = c.req.path || c.req.url || '';
+        const reqMethod = (c.req.method || 'GET').toUpperCase();
+
+        // ── Tools Catalogue Endpoints ─────────────────────────────────────────
+        if ((reqPath === '/api/tools' || reqPath === '/internal/tools') && reqMethod === 'GET') {
+          return c.json(getToolsCatalogue());
+        }
+
+        const toolExecMatch = reqPath.match(/^\/api\/tools\/([^/?#]+)\/execute$/);
+        if (toolExecMatch && reqMethod === 'POST') {
+          const toolId = decodeURIComponent(toolExecMatch[1]);
+          const body = await c.req.json().catch(() => ({}));
+          const inputData = body.inputData ?? body.input ?? body;
+          const execResult = await executeToolById(toolId, inputData, { requestContext });
+          return c.json(execResult, execResult.success ? 200 : 400);
+        }
+
+        const toolDetailMatch = reqPath.match(/^\/api\/tools\/([^/?#]+)$/);
+        if (toolDetailMatch && reqMethod === 'GET') {
+          const toolId = decodeURIComponent(toolDetailMatch[1]);
+          const tools = getToolsCatalogue();
+          const found = tools.find((t) => t.id === toolId || t.id.toLowerCase() === toolId.toLowerCase());
+          if (found) {
+            return c.json(found);
+          }
+          return c.json({ error: `Tool '${toolId}' not found` }, 404);
+        }
+
+        // ── Dynamic Agent Registration Endpoints ──────────────────────────────
+        if (reqPath === '/internal/agents/register' && reqMethod === 'POST') {
+          const body = await c.req.json().catch(() => ({}));
+          const result = registerAgentInRuntime(mastra, allAgents, body);
+          return c.json(result);
+        }
+
+        const unregisterMatch = reqPath.match(/^\/internal\/agents\/([^/?#]+)$/);
+        if (unregisterMatch && reqMethod === 'DELETE') {
+          const agentId = decodeURIComponent(unregisterMatch[1]);
+          const result = unregisterAgentInRuntime(mastra, allAgents, agentId);
+          return c.json(result);
+        }
+
+        // ── Dynamic agent provisioning on request ─────────────────────────────
         const agentMatch = reqPath.match(/^\/api\/agents\/([^/?#]+)/);
         if (agentMatch) {
           const requestedAgentId = decodeURIComponent(agentMatch[1]);
