@@ -9,6 +9,7 @@ import {
   CloudExporter,
   SensitiveDataFilter,
 } from '@mastra/observability';
+import { MastraCompositeStore } from '@mastra/core/storage';
 import path from 'node:path';
 
 // ── Environment detection ─────────────────────────────────────────────────────
@@ -245,17 +246,13 @@ const mongoStore = new MongoDBStore({
 
 // On Vercel: MongoDB-only storage (no DuckDB native binaries)
 // Locally: composite storage with DuckDB for observability
-let storage: any;
-if (observabilityDomain) {
-  const { MastraCompositeStore } = await import('@mastra/core/storage');
-  storage = new MastraCompositeStore({
-    id: 'composite-storage',
-    default: mongoStore,
-    domains: observabilityDomain,
-  });
-} else {
-  storage = mongoStore;
-}
+const storage: any = observabilityDomain
+  ? new MastraCompositeStore({
+      id: 'composite-storage',
+      default: mongoStore,
+      domains: observabilityDomain,
+    })
+  : mongoStore;
 
 // ── Mastra Instance ──────────────────────────────────────────────────────────
 // IMPORTANT: The `deployer: new VercelDeployer()` MUST be inline in the
