@@ -6,6 +6,8 @@ import { z } from 'zod';
 // Set EXA_API_KEY in .env for real results. Falls back to demo data.
 // ---------------------------------------------------------------------------
 
+import { withRetry } from './tool-helper';
+
 async function exaRequest(endpoint: string, body: object): Promise<unknown> {
   const apiKey = process.env.EXA_API_KEY;
   if (!apiKey) {
@@ -17,13 +19,22 @@ async function exaRequest(endpoint: string, body: object): Promise<unknown> {
       ],
     };
   }
-  const res = await fetch(`https://api.exa.ai${endpoint}`, {
-    method: 'POST',
-    headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Exa API error: ${res.status}`);
-  return res.json();
+
+  return withRetry(async () => {
+    const res = await fetch(`https://api.exa.ai${endpoint}`, {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      const error: any = new Error(`Exa API error: ${res.status} ${errText}`);
+      error.status = res.status;
+      throw error;
+    }
+    return res.json();
+  }, { maxRetries: 2, initialDelayMs: 500 });
 }
 
 type ExaResult = { id: string; url: string; title?: string; text?: string; score?: number; publishedDate?: string };
