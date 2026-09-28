@@ -2,6 +2,6 @@
   "version": 2,
   "buildCommand": "npm run build",
   "framework": null,
-  "installCommand": "npm install",
+  "installCommand": "npm install --ignore-scripts",
   "outputDirectory": ".vercel/output"
 }
