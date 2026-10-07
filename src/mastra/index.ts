@@ -280,6 +280,7 @@ export const mastra = new Mastra({
         'x-provider-id',
         'x-model-id',
         'x-llm-base-url',
+        'x-execution-mode',
         'accept-language',
         'ngrok-skip-browser-warning',
         'A2A-Version',
@@ -311,6 +312,7 @@ export const mastra = new Mastra({
         const providerId = c.req.header('x-provider-id');
         const modelId = c.req.header('x-model-id');
         const llmBaseUrl = c.req.header('x-llm-base-url');
+        const executionMode = c.req.header('x-execution-mode');
 
         let requestContext = c.get('requestContext');
         if (!requestContext || typeof requestContext.set !== 'function') {
@@ -325,6 +327,7 @@ export const mastra = new Mastra({
         if (providerId) requestContext.set('provider-id', providerId);
         if (modelId) requestContext.set('model-id', modelId);
         if (llmBaseUrl) requestContext.set('llm-base-url', llmBaseUrl);
+        if (executionMode) requestContext.set('execution-mode', executionMode);
 
         if (acceptLanguage) {
           requestContext.set('locale', acceptLanguage.split(',')[0].trim());
@@ -461,6 +464,7 @@ export const mastra = new Mastra({
           'provider-id',
           'model-id',
           'llm-base-url',
+          'execution-mode',
         ],
       },
     },

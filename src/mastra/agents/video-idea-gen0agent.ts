@@ -38,7 +38,7 @@ export const videoIdeaGenagent = new Agent({
   // ── Context schema ────────────────────────────────────────────────────────
   requestContextSchema,
 
-  model: () => getDefaultModel(),
+  model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
 
   tools: { exaSearchTool, exaScrapePageTool },
 

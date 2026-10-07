@@ -13,7 +13,7 @@ export const browserAgent = new Agent({
   name: 'Browser Agent',
   description: 'A real-browser web automation assistant powered by Playwright/Chromium.',
   workspace: codeWorkspace,
-  model: () => getDefaultModel(),
+  model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
   memory: defaultMemory,
   browser,
   instructions: `You are a web automation assistant with full control of a real Chromium browser.

@@ -31,7 +31,7 @@ Example questions you can answer:
 - "What are the top 3 best-selling products?"
 - "Show all completed orders over $500"
 - "What is the total revenue by product?"`,
-  model: () => getDefaultModel(),
+  model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
   memory: defaultMemory,
   tools: { listTablesTool, executeSqlTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────

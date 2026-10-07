@@ -20,7 +20,7 @@ Format your response as:
 **Transliteration (optional):** <romanized Hindi>
 
 If the input is already in Hindi or is not English, politely inform the user and ask for English text.`,
-  model: () => getDefaultModel(),
+  model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
   memory: defaultMemory,
   tools: {},
   scorers: defaultScorerConfig(),

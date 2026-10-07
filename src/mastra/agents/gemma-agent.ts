@@ -31,7 +31,7 @@ export const gemmaAgent = new Agent({
   name: 'Gemma Agent',
   description: 'An agent that uses the Gemma model from local LM Studio via MCP.',
 
-  model: () => resolveAgentModel('lm-studio:google/gemma-3-4b'),
+  model: ({ requestContext }: any) => resolveAgentModel('lm-studio:google/gemma-3-4b', requestContext),
 
   // Memory instance enables multi-turn conversation persistence
   memory: defaultMemory,

@@ -43,7 +43,7 @@ export const deepSearchAgent = new Agent({
   // ── Context schema ────────────────────────────────────────────────────────
   requestContextSchema,
 
-  model: () => resolveAgentModel(),
+  model: ({ requestContext }: any) => resolveAgentModel(undefined, requestContext),
 
   tools: { exaSearchTool, exaScrapePageTool },
 

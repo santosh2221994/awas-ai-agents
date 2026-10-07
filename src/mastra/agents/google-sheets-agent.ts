@@ -28,7 +28,7 @@ To use a real spreadsheet:
 - Provide the spreadsheet ID (from the URL) when asking questions
 
 Currently using demo data if no API key is configured.`,
-  model: () => getDefaultModel(),
+  model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
   memory: defaultMemory,
   tools: { readSheetTool, writeSheetTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────

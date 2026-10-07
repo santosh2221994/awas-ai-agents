@@ -31,7 +31,7 @@ When answering:
 2. Quote the specific relevant section
 3. Explain it in plain language
 4. Provide links to related sections`,
-  model: () => getDefaultModel(),
+  model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
   memory: defaultMemory,
   tools: { browseUrlTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────

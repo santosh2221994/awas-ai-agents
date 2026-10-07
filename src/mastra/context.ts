@@ -19,6 +19,7 @@ export const requestContextSchema = z.object({
   'provider-id': z.string().optional(),
   'model-id': z.string().optional(),
   'llm-base-url': z.string().optional(),
+  'execution-mode': z.enum(['cloud', 'local']).or(z.string()).optional(),
 });
 
 export type RequestContext = z.infer<typeof requestContextSchema>;

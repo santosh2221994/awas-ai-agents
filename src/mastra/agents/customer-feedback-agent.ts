@@ -40,7 +40,7 @@ For each critical theme:
 A 3-paragraph summary suitable for a leadership report.
 
 Paste customer feedback below, or describe the source (support tickets, app reviews, surveys).`,
-  model: () => getDefaultModel(),
+  model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
   memory: defaultMemory,
   requestContextSchema,
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────

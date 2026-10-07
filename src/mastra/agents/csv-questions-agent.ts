@@ -36,7 +36,7 @@ Your analysis should include:
 - What comparisons would be most valuable?
 
 To get started, paste your CSV data or describe your dataset.`,
-  model: () => getDefaultModel(),
+  model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
   memory: defaultMemory,
   tools: { parseCsvTool, analyzeColumnTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────

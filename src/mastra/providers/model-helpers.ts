@@ -10,9 +10,21 @@
 
 import { lmStudioModel } from './lm-studio';
 import { groqModel } from './groq';
+import { ollamaModel } from './ollama';
+import { openaiModel } from './openai';
+import { geminiModel, hasGoogleCredentials } from './gemini';
 import { resolveAgentModel, GLOBAL_AGENT_CONFIG } from '../services/agent-config-service';
 
-export { resolveAgentModel, GLOBAL_AGENT_CONFIG };
+export {
+  resolveAgentModel,
+  GLOBAL_AGENT_CONFIG,
+  lmStudioModel,
+  groqModel,
+  ollamaModel,
+  openaiModel,
+  geminiModel,
+  hasGoogleCredentials,
+};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

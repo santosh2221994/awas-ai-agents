@@ -34,7 +34,7 @@ Tips for users:
 - Say "give me chapter timestamps" for a full outline
 
 Note: Set YOUTUBE_API_KEY in .env for real video metadata.`,
-  model: () => getDefaultModel(),
+  model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
   memory: defaultMemory,
   tools: { getVideoMetaTool, getVideoTranscriptTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────

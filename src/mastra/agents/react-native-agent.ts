@@ -19,7 +19,7 @@ Guidelines:
 - Wrap output in a single code block using \`\`\`tsx ... \`\`\`
 - If the prompt is ambiguous, make reasonable assumptions and note them briefly before the code block
 - Keep generated code concise — avoid excessive boilerplate or repeated comments`,
-  model: () => getDefaultModel(),
+  model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
   memory: defaultMemory,
   scorers: defaultScorerConfig(),
   options: {

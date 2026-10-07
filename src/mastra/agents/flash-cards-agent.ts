@@ -33,7 +33,7 @@ Card types to generate:
 4. Comparison cards: "What is the difference between X and Y?"
 
 After generating, offer to create a quiz from the flash cards.`,
-  model: () => getDefaultModel(),
+  model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
   memory: defaultMemory,
   tools: { loadPdfTool, searchPdfTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────

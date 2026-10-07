@@ -58,7 +58,7 @@ export const githubPrAgent = new Agent({
     'user-id': z.string().optional(),
   }),
 
-  model: () => getDefaultModel(),
+  model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
   memory: defaultMemory,
   tools: { getPrDiffTool, postReviewCommentTool },
   inputProcessors: [

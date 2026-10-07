@@ -74,7 +74,7 @@ export const mcpAgent = new Agent({
   workspace: dynamicWorkspace,
   memory: defaultMemory,
 
-  model: () => getDefaultModel(),
+  model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
 
   // ── Dynamic instructions — injects userId for attribution ─────────────────
   instructions: async ({ requestContext }) => {

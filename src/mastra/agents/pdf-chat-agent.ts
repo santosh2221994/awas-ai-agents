@@ -26,7 +26,7 @@ You can also:
 Always cite page numbers in your answers. If the PDF has not been loaded yet, ask for a URL first.
 
 For quiz generation, create 3-5 questions with 4 options each (A, B, C, D) and indicate the correct answer.`,
-  model: () => getDefaultModel(),
+  model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
   memory: defaultMemory,
   tools: { loadPdfTool, searchPdfTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────

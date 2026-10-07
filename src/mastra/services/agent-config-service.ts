@@ -3,22 +3,36 @@
  *
  * Centralized Service & Registry for Agent Configurations.
  *
- * All model selections, provider routing, tool mappings, processors, and token
- * limits are managed in this single file. Changing a model or provider here
- * automatically updates the behavior across all registered Mastra agents.
+ * Provides the Dual Execution Router (Cloud LLMs vs. Local LLMs)
+ * supporting all 5 platform providers:
+ * 1. LM Studio (Local OpenAI-compatible inference at http://127.0.0.1:1234)
+ * 2. Ollama (Local open-weights daemon at http://127.0.0.1:11434)
+ * 3. Groq Cloud (LPU ultra-fast inference)
+ * 4. Google Gemini (Multimodal reasoning)
+ * 5. OpenAI (GPT-4o standard cloud inference)
  */
 
 import { groqModel } from '../providers/groq';
 import { lmStudioModel } from '../providers/lm-studio';
+import { ollamaModel } from '../providers/ollama';
+import { openaiModel } from '../providers/openai';
+import { geminiModel, hasGoogleCredentials } from '../providers/gemini';
+
 export interface AgentGlobalConfig {
-  /** Default provider mode: 'groq' | 'gemini' | 'lm-studio' | 'auto' */
-  defaultProvider: 'groq' | 'gemini' | 'lm-studio' | 'auto';
+  /** Default provider mode: 'groq' | 'gemini' | 'lm-studio' | 'ollama' | 'openai' | 'auto' */
+  defaultProvider: 'groq' | 'gemini' | 'lm-studio' | 'ollama' | 'openai' | 'auto';
+  /** Default execution mode: 'cloud' | 'local' | 'auto' */
+  defaultExecutionMode: 'cloud' | 'local' | 'auto';
   /** Default model ID for Groq provider */
   groqModelId: string;
   /** Default model ID for Google Gemini */
   geminiModelId: string;
   /** Default model ID for local LM Studio */
   lmStudioModelId: string;
+  /** Default model ID for local Ollama */
+  ollamaModelId: string;
+  /** Default model ID for OpenAI */
+  openaiModelId: string;
   /** Default context window token limit for LLM calls */
   defaultTokenLimit: number;
 }
@@ -26,25 +40,87 @@ export interface AgentGlobalConfig {
 /** Global agent settings — edit this single object to change model defaults for all agents */
 export const GLOBAL_AGENT_CONFIG: AgentGlobalConfig = {
   defaultProvider: ((process.env.DEFAULT_PROVIDER || process.env.MODEL_PROVIDER || 'auto') as AgentGlobalConfig['defaultProvider']),
+  defaultExecutionMode: ((process.env.DEFAULT_EXECUTION_MODE || process.env.EXECUTION_MODE || 'auto') as AgentGlobalConfig['defaultExecutionMode']),
   groqModelId: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-  geminiModelId: 'google/gemini-2.0-flash',
-  lmStudioModelId: process.env.LM_STUDIO_MODEL || 'mistral-7b-instruct-v0.2',
+  geminiModelId: process.env.GEMINI_MODEL || 'google/gemini-2.0-flash',
+  lmStudioModelId: process.env.LM_STUDIO_MODEL || 'google/gemma-3-4b',
+  ollamaModelId: process.env.OLLAMA_MODEL || 'llama3.2',
+  openaiModelId: process.env.OPENAI_MODEL || 'gpt-4o',
   defaultTokenLimit: 100_000,
 };
 
 /**
- * Resolves the language model for an agent based on the global configuration
- * or an optional per-agent override.
+ * Resolves the language model for an agent based on incoming requestContext,
+ * execution mode ('cloud' vs 'local'), user subscription tier, and provider configuration.
  *
- * @param modelOverride  Optional explicit model string or provider prefix (e.g., 'groq:llama-3.3-70b-versatile', 'mistral-7b-instruct-v0.2', 'google/gemini-2.0-flash')
- *
- * @example
- *   model: () => resolveAgentModel()                                  // Uses global auto-resolution
- *   model: () => resolveAgentModel('groq:llama-3.1-8b-instant')       // Groq specific model
- *   model: () => resolveAgentModel('mistral-7b-instruct-v0.2')        // LM Studio specific model
- *   model: () => resolveAgentModel('google/gemini-2.0-flash')         // Gemini specific model
+ * Routing Strategy:
+ * 1. Request-level provider overrides (`provider-id`, `model-id`, `llm-base-url`)
+ * 2. Request-level execution mode (`x-execution-mode: 'cloud' | 'local'`)
+ * 3. Prefix-based model overrides (`groq:`, `lm-studio:`, `ollama:`, `openai:`, `gemini:`)
+ * 4. User tier routing (Enterprise -> Gemma 12B/Gemini 2.0, Pro -> Gemma 4B, Free -> Auto)
+ * 5. Global environment provider and fallback chain
  */
-export function resolveAgentModel(modelOverride?: string, context?: any) {
+export function resolveAgentModel(modelOverride?: string, context?: any): any {
+  // Extract requestContext safely
+  const reqContext = context?.requestContext || (typeof context?.get === 'function' ? context : undefined);
+  const contextProvider = (reqContext?.get?.('provider-id') as string | undefined)?.toLowerCase();
+  const contextModel = reqContext?.get?.('model-id') as string | undefined;
+  const contextBaseUrl = reqContext?.get?.('llm-base-url') as string | undefined;
+  const contextExecutionMode = (reqContext?.get?.('execution-mode') as string | undefined)?.toLowerCase();
+  const contextTier = (reqContext?.get?.('user-tier') as string | undefined)?.toLowerCase();
+
+  // ── 1. Explicit Provider in Request Context ──────────────────────────────────
+  if (contextProvider) {
+    if (contextProvider === 'lm-studio' || contextProvider === 'lmstudio') {
+      return lmStudioModel(contextModel || modelOverride || GLOBAL_AGENT_CONFIG.lmStudioModelId, contextBaseUrl);
+    }
+    if (contextProvider === 'ollama') {
+      return ollamaModel(contextModel || modelOverride || GLOBAL_AGENT_CONFIG.ollamaModelId, contextBaseUrl);
+    }
+    if (contextProvider === 'groq') {
+      return groqModel(contextModel || modelOverride || GLOBAL_AGENT_CONFIG.groqModelId);
+    }
+    if (contextProvider === 'gemini' || contextProvider === 'google') {
+      return geminiModel(contextModel || modelOverride || GLOBAL_AGENT_CONFIG.geminiModelId);
+    }
+    if (contextProvider === 'openai') {
+      return openaiModel(contextModel || modelOverride || GLOBAL_AGENT_CONFIG.openaiModelId, undefined, contextBaseUrl);
+    }
+  }
+
+  // ── 2. Explicit Dual Execution Mode ('cloud' vs 'local') ─────────────────────
+  if (contextExecutionMode === 'local') {
+    // Zero-data-leak local inference
+    if (contextModel?.includes('ollama') || modelOverride?.startsWith('ollama:')) {
+      return ollamaModel(contextModel || modelOverride?.replace(/^ollama:/, ''), contextBaseUrl);
+    }
+    const localModelId = contextModel || modelOverride || (
+      contextTier === 'enterprise' ? 'google/gemma-4-12b-qat' : GLOBAL_AGENT_CONFIG.lmStudioModelId
+    );
+    return lmStudioModel(localModelId, contextBaseUrl);
+  }
+
+  if (contextExecutionMode === 'cloud') {
+    // Cloud inference
+    if (contextModel?.startsWith('groq:') || modelOverride?.startsWith('groq:')) {
+      return groqModel(contextModel?.replace(/^groq:/, '') || modelOverride?.replace(/^groq:/, ''));
+    }
+    if (contextModel?.startsWith('openai:') || modelOverride?.startsWith('openai:')) {
+      return openaiModel(contextModel?.replace(/^openai:/, '') || modelOverride?.replace(/^openai:/, ''));
+    }
+    if (hasGoogleCredentials()) {
+      return geminiModel(contextModel || modelOverride || GLOBAL_AGENT_CONFIG.geminiModelId);
+    }
+    if (process.env.GROQ_API_KEY) {
+      return groqModel(contextModel || modelOverride || GLOBAL_AGENT_CONFIG.groqModelId);
+    }
+    if (process.env.OPENAI_API_KEY) {
+      return openaiModel(contextModel || modelOverride || GLOBAL_AGENT_CONFIG.openaiModelId);
+    }
+    return geminiModel(contextModel || modelOverride || GLOBAL_AGENT_CONFIG.geminiModelId);
+  }
+
+  // ── 3. Explicit Model Prefix Override ────────────────────────────────────────
   if (modelOverride) {
     if (modelOverride.startsWith('groq:')) {
       return groqModel(modelOverride.replace(/^groq:/, ''));
@@ -52,73 +128,60 @@ export function resolveAgentModel(modelOverride?: string, context?: any) {
     if (modelOverride.startsWith('lm-studio:') || modelOverride.startsWith('lmstudio:')) {
       return lmStudioModel(modelOverride.replace(/^(lm-studio|lmstudio):/, ''));
     }
-    if (modelOverride.includes('mistral') || modelOverride.includes('gemma') || modelOverride.includes('nemotron') || modelOverride.includes('llama')) {
+    if (modelOverride.startsWith('ollama:')) {
+      return ollamaModel(modelOverride.replace(/^ollama:/, ''));
+    }
+    if (modelOverride.startsWith('openai:')) {
+      return openaiModel(modelOverride.replace(/^openai:/, ''));
+    }
+    if (modelOverride.startsWith('gemini:') || modelOverride.startsWith('google:')) {
+      return geminiModel(modelOverride.replace(/^(gemini|google):/, ''));
+    }
+    if (modelOverride.startsWith('google/gemini')) {
+      return geminiModel(modelOverride);
+    }
+    if (modelOverride.includes('mistral') || modelOverride.includes('gemma') || modelOverride.includes('nemotron') || modelOverride.includes('qwen')) {
       return lmStudioModel(modelOverride);
     }
     return modelOverride;
   }
 
-  // Check dynamic requestContext if passed by Mastra agent execution
-  const reqContext = context?.requestContext || (typeof context?.get === 'function' ? context : undefined);
-  const contextProvider = (reqContext?.get?.('provider-id') as string | undefined)?.toLowerCase();
-  const contextModel = reqContext?.get?.('model-id') as string | undefined;
-  const contextBaseUrl = reqContext?.get?.('llm-base-url') as string | undefined;
-
-  if (contextProvider === 'lm-studio' || contextProvider === 'lmstudio') {
-    return lmStudioModel(contextModel || 'google/gemma-3-4b', contextBaseUrl);
-  }
-  if (contextProvider === 'groq' && contextModel) {
-    return groqModel(contextModel);
-  }
-  if (contextProvider === 'gemini' && contextModel) {
-    return contextModel;
+  // ── 4. User Tier Based Routing ───────────────────────────────────────────────
+  if (contextTier === 'enterprise') {
+    if (hasGoogleCredentials()) {
+      return geminiModel('google/gemini-2.0-flash');
+    }
+    return lmStudioModel('google/gemma-4-12b-qat');
   }
 
+  // ── 5. Global Provider Preference / Auto Detection ───────────────────────────
   const activeProvider = (
     process.env.DEFAULT_PROVIDER ||
     process.env.MODEL_PROVIDER ||
-    (typeof GLOBAL_AGENT_CONFIG !== 'undefined' ? GLOBAL_AGENT_CONFIG?.defaultProvider : 'auto') ||
+    GLOBAL_AGENT_CONFIG.defaultProvider ||
     'auto'
   ).toLowerCase();
 
-  const lmStudioId =
-    (typeof GLOBAL_AGENT_CONFIG !== 'undefined' && GLOBAL_AGENT_CONFIG?.lmStudioModelId) ||
-    process.env.LM_STUDIO_MODEL ||
-    'google/gemma-3-4b';
-  const groqId =
-    (typeof GLOBAL_AGENT_CONFIG !== 'undefined' && GLOBAL_AGENT_CONFIG?.groqModelId) ||
-    process.env.GROQ_MODEL ||
-    'llama-3.3-70b-versatile';
-  const geminiId =
-    (typeof GLOBAL_AGENT_CONFIG !== 'undefined' && GLOBAL_AGENT_CONFIG?.geminiModelId) ||
-    'google/gemini-2.0-flash';
-
-  // 1. Explicit LM Studio Provider mode
   if (activeProvider === 'lm-studio' || activeProvider === 'lmstudio') {
-    return lmStudioModel(lmStudioId);
+    return lmStudioModel(GLOBAL_AGENT_CONFIG.lmStudioModelId);
   }
-
-  // 2. Explicit Groq Provider mode
+  if (activeProvider === 'ollama') {
+    return ollamaModel(GLOBAL_AGENT_CONFIG.ollamaModelId);
+  }
   if (activeProvider === 'groq') {
-    return groqModel(groqId);
+    return groqModel(GLOBAL_AGENT_CONFIG.groqModelId);
   }
-
-  // 3. Explicit Gemini / Google Provider mode
   if (activeProvider === 'gemini' || activeProvider === 'google') {
-    return geminiId;
+    return geminiModel(GLOBAL_AGENT_CONFIG.geminiModelId);
+  }
+  if (activeProvider === 'openai') {
+    return openaiModel(GLOBAL_AGENT_CONFIG.openaiModelId);
   }
 
-  // 4. Auto mode: Google Gemini API key check
-  const hasGoogleKey = Boolean(
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY &&
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY.trim() !== '' &&
-    !process.env.GOOGLE_GENERATIVE_AI_API_KEY.includes('your_')
-  );
-
-  if (hasGoogleKey) {
-    return geminiId;
+  // Auto mode fallback: Google Gemini if credentials exist, else local LM Studio
+  if (hasGoogleCredentials()) {
+    return geminiModel(GLOBAL_AGENT_CONFIG.geminiModelId);
   }
 
-  // 5. Fallback: LM Studio local model
-  return lmStudioModel(lmStudioId);
+  return lmStudioModel(GLOBAL_AGENT_CONFIG.lmStudioModelId);
 }

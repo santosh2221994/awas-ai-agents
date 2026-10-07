@@ -6,17 +6,6 @@ import { requestContextSchema } from '../context';
 import { resolveAgentModel, localeInstruction, defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
-/** Model routing by tier — enterprise gets highest capacity, free gets default. */
-const modelForTier = (tier: string | undefined) => {
-  switch (tier) {
-    case 'enterprise':
-      return resolveAgentModel('lm-studio:google/gemma-4-12b-qat');
-    case 'pro':
-      return resolveAgentModel('lm-studio:google/gemma-3-4b');
-    default:
-      return resolveAgentModel();
-  }
-};
 
 
 const BASE_INSTRUCTIONS = `
@@ -41,10 +30,9 @@ export const weatherAgent = new Agent({
   name: 'Weather Agent',
   description: 'Provides current weather conditions and forecasts for any city using the Open-Meteo API.',
 
-  // ── Dynamic model — routes by user tier ──────────────────────────────────
-  model: ({ requestContext }) => {
-    const tier = requestContext?.get?.('user-tier');
-    return modelForTier(tier as string | undefined);
+  // ── Dynamic model — routes by context & tier ────────────────────────────
+  model: ({ requestContext }: any) => {
+    return resolveAgentModel(undefined, requestContext);
   },
 
   // ── Dynamic instructions — locale-aware ──────────────────────────────────
