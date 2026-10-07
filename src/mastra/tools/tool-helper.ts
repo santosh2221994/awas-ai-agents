@@ -131,44 +131,49 @@ export function extractZodSchemaInfo(schema: any): Array<{
     let options: string[] | undefined = undefined;
 
     // Traverse wrapped defs (ZodOptional, ZodDefault, ZodEffects, etc.)
-    while (current && current._def) {
-      const def = current._def;
-      const type = def.typeName;
+    while (current) {
+      const def = current._def || current.def || {};
+      const type = (def.typeName || def.type || current.type || '').toLowerCase();
 
-      if (def.description) {
-        description = def.description;
+      if (def.description || current.description) {
+        description = def.description || current.description;
       }
 
-      if (type === 'ZodOptional' || type === 'ZodNullable') {
+      if (type === 'zodoptional' || type === 'optional' || type === 'zodnullable' || type === 'nullable') {
         required = false;
-        current = def.innerType;
+        current = def.innerType || current.innerType;
         continue;
       }
 
-      if (type === 'ZodDefault') {
+      if (type === 'zoddefault' || type === 'default') {
         required = false;
-        defaultValue = typeof def.defaultValue === 'function' ? def.defaultValue() : def.defaultValue;
-        current = def.innerType;
+        defaultValue = typeof def.defaultValue === 'function' ? def.defaultValue() : (def.defaultValue ?? current.defaultValue);
+        current = def.innerType || current.innerType;
         continue;
       }
 
-      if (type === 'ZodString') {
+      if (type === 'zodeffects' || type === 'effects' || type === 'zodpipeline' || type === 'pipeline') {
+        current = def.schema || def.innerType || current.innerType;
+        continue;
+      }
+
+      if (type === 'zodstring' || type === 'string') {
         typeName = 'string';
         break;
-      } else if (type === 'ZodNumber') {
+      } else if (type === 'zodnumber' || type === 'number') {
         typeName = 'number';
         break;
-      } else if (type === 'ZodBoolean') {
+      } else if (type === 'zodboolean' || type === 'boolean') {
         typeName = 'boolean';
         break;
-      } else if (type === 'ZodEnum') {
+      } else if (type === 'zodenum' || type === 'enum') {
         typeName = 'enum';
-        options = def.values;
+        options = def.values || current.options || (def.entries ? Object.keys(def.entries) : undefined);
         break;
-      } else if (type === 'ZodArray') {
+      } else if (type === 'zodarray' || type === 'array') {
         typeName = 'array';
         break;
-      } else if (type === 'ZodRecord' || type === 'ZodObject') {
+      } else if (type === 'zodrecord' || type === 'record' || type === 'zodobject' || type === 'object') {
         typeName = 'object';
         break;
       }
