@@ -64,7 +64,7 @@ export const studioChatCopilotAgent = new Agent({
   id: 'studio-chat-copilot-agent',
   name: 'Studio Chat Co-Pilot Agent',
   instructions: SYSTEM_INSTRUCTIONS,
-  model: ({ requestContext }: any) => getDefaultModel('google/gemma-3-4b', requestContext),
+  model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
   tools: {
     listRepositoryAgents,
     createNewAgent,

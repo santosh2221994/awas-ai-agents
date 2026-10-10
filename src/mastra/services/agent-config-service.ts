@@ -61,13 +61,27 @@ export const GLOBAL_AGENT_CONFIG: AgentGlobalConfig = {
  * 5. Global environment provider and fallback chain
  */
 export function resolveAgentModel(modelOverride?: string, context?: any): any {
-  // Extract requestContext safely
-  const reqContext = context?.requestContext || (typeof context?.get === 'function' ? context : undefined);
-  const contextProvider = (reqContext?.get?.('provider-id') as string | undefined)?.toLowerCase();
-  const contextModel = reqContext?.get?.('model-id') as string | undefined;
-  const contextBaseUrl = reqContext?.get?.('llm-base-url') as string | undefined;
-  const contextExecutionMode = (reqContext?.get?.('execution-mode') as string | undefined)?.toLowerCase();
-  const contextTier = (reqContext?.get?.('user-tier') as string | undefined)?.toLowerCase();
+  // Extract requestContext safely (handles Map, Record, or RequestContext wrapper)
+  const reqContext = context?.requestContext || (typeof context?.get === 'function' ? context : (context?.context || context));
+  const getCtxField = (key: string): string | undefined => {
+    if (!reqContext) return undefined;
+    if (typeof reqContext.get === 'function') {
+      try {
+        const val = reqContext.get(key);
+        if (val !== undefined && val !== null) return String(val);
+      } catch {}
+    }
+    if (reqContext[key] !== undefined && reqContext[key] !== null) {
+      return String(reqContext[key]);
+    }
+    return undefined;
+  };
+
+  const contextProvider = getCtxField('provider-id')?.toLowerCase();
+  const contextModel = getCtxField('model-id');
+  const contextBaseUrl = getCtxField('llm-base-url');
+  const contextExecutionMode = getCtxField('execution-mode')?.toLowerCase();
+  const contextTier = getCtxField('user-tier')?.toLowerCase();
 
   // ── 1. Explicit Provider in Request Context ──────────────────────────────────
   if (contextProvider) {
@@ -108,6 +122,9 @@ export function resolveAgentModel(modelOverride?: string, context?: any): any {
     if (contextModel?.startsWith('openai:') || modelOverride?.startsWith('openai:')) {
       return openaiModel(contextModel?.replace(/^openai:/, '') || modelOverride?.replace(/^openai:/, ''));
     }
+    if (contextModel?.startsWith('google/gemini') || contextModel?.startsWith('gemini')) {
+      return geminiModel(contextModel);
+    }
     if (hasGoogleCredentials()) {
       return geminiModel(contextModel || modelOverride || GLOBAL_AGENT_CONFIG.geminiModelId);
     }
@@ -120,30 +137,31 @@ export function resolveAgentModel(modelOverride?: string, context?: any): any {
     return geminiModel(contextModel || modelOverride || GLOBAL_AGENT_CONFIG.geminiModelId);
   }
 
-  // ── 3. Explicit Model Prefix Override ────────────────────────────────────────
-  if (modelOverride) {
-    if (modelOverride.startsWith('groq:')) {
-      return groqModel(modelOverride.replace(/^groq:/, ''));
+  // ── 3. Explicit Model in Request Context or Model Prefix Override ────────────
+  const effectiveModel = contextModel || modelOverride;
+  if (effectiveModel) {
+    if (effectiveModel.startsWith('groq:')) {
+      return groqModel(effectiveModel.replace(/^groq:/, ''));
     }
-    if (modelOverride.startsWith('lm-studio:') || modelOverride.startsWith('lmstudio:')) {
-      return lmStudioModel(modelOverride.replace(/^(lm-studio|lmstudio):/, ''));
+    if (effectiveModel.startsWith('lm-studio:') || effectiveModel.startsWith('lmstudio:')) {
+      return lmStudioModel(effectiveModel.replace(/^(lm-studio|lmstudio):/, ''), contextBaseUrl);
     }
-    if (modelOverride.startsWith('ollama:')) {
-      return ollamaModel(modelOverride.replace(/^ollama:/, ''));
+    if (effectiveModel.startsWith('ollama:')) {
+      return ollamaModel(effectiveModel.replace(/^ollama:/, ''), contextBaseUrl);
     }
-    if (modelOverride.startsWith('openai:')) {
-      return openaiModel(modelOverride.replace(/^openai:/, ''));
+    if (effectiveModel.startsWith('openai:')) {
+      return openaiModel(effectiveModel.replace(/^openai:/, ''));
     }
-    if (modelOverride.startsWith('gemini:') || modelOverride.startsWith('google:')) {
-      return geminiModel(modelOverride.replace(/^(gemini|google):/, ''));
+    if (effectiveModel.startsWith('gemini:') || effectiveModel.startsWith('google:')) {
+      return geminiModel(effectiveModel.replace(/^(gemini|google):/, ''));
     }
-    if (modelOverride.startsWith('google/gemini')) {
-      return geminiModel(modelOverride);
+    if (effectiveModel.startsWith('google/gemini')) {
+      return geminiModel(effectiveModel);
     }
-    if (modelOverride.includes('mistral') || modelOverride.includes('gemma') || modelOverride.includes('nemotron') || modelOverride.includes('qwen')) {
-      return lmStudioModel(modelOverride);
+    if (effectiveModel.includes('mistral') || effectiveModel.includes('gemma') || effectiveModel.includes('nemotron') || effectiveModel.includes('qwen') || effectiveModel.includes('glm')) {
+      return lmStudioModel(effectiveModel, contextBaseUrl);
     }
-    return modelOverride;
+    return effectiveModel;
   }
 
   // ── 4. User Tier Based Routing ───────────────────────────────────────────────

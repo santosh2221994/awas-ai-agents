@@ -1,5 +1,4 @@
 import { Agent } from '@mastra/core/agent';
-import { readonlyWorkspace } from '../workspace';
 import { skillListTool } from '../tools/skill-list-tool';
 import { exaSearchTool } from '../tools/exa-search-tool';
 import { listRepositoryAgentsTool } from '../tools/list-repository-agents-tool';
@@ -68,7 +67,6 @@ export const studioChatAgent = new Agent({
   id: 'studio-chat-agent',
   name: 'Studio Chat Co-Pilot Agent',
   description: 'AI-assisted Studio Co-Pilot for AWAS canvas and agent editor. Assists users with system prompt drafting, tool selection, model tuning, node configurations, parameter mapping, and workflow auto-wiring.',
-  workspace: readonlyWorkspace,
   memory: defaultMemory,
 
   // ── Dynamic instructions — locale-aware ──────────────────────────────────
@@ -80,7 +78,7 @@ export const studioChatAgent = new Agent({
   // ── Context schema ────────────────────────────────────────────────────────
   requestContextSchema,
 
-  model: ({ requestContext }: any) => getDefaultModel('google/gemma-3-4b', requestContext),
+  model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
 
   tools: {
     skillListTool,
