@@ -30,16 +30,6 @@ export function registerAgentInRuntime(
     throw new Error('Agent id is required for registration');
   }
 
-  // Check if agent already exists in allAgentsMap
-  if (allAgentsMap[id]) {
-    return {
-      success: true,
-      agentId: id,
-      message: `Agent ${id} is already registered.`,
-      agent: allAgentsMap[id],
-    };
-  }
-
   const newAgent = createDynamicAgent(id, {
     name,
     description,
@@ -54,14 +44,14 @@ export function registerAgentInRuntime(
     try {
       mastraInstance.addAgent(newAgent, id);
     } catch (err: any) {
-      console.warn(`[internal-api] Note on adding agent ${id} to Mastra:`, err.message);
+      console.warn(`[internal-api] Note on registering agent ${id} in Mastra:`, err.message);
     }
   }
 
   return {
     success: true,
     agentId: id,
-    message: `Agent ${id} successfully registered in runtime.`,
+    message: `Agent ${id} successfully synchronized in runtime.`,
     agent: newAgent,
   };
 }
@@ -323,6 +313,30 @@ const TOOL_METADATA_REGISTRY: Record<string, {
     requiresCredentials: true,
     credentialKey: 'GOOGLE_SHEETS_KEY',
   },
+  'github-get-branches': {
+    name: 'GitHub Branches Explorer',
+    category: 'Code & Repositories',
+    icon: 'GitBranch',
+    sampleInput: { owner: 'devansh18', repo: 'awas' },
+    requiresCredentials: false,
+    credentialKey: 'GITHUB_TOKEN',
+  },
+  'github-get-repo-details': {
+    name: 'GitHub Repository Auditor',
+    category: 'Code & Repositories',
+    icon: 'Github',
+    sampleInput: { owner: 'devansh18', repo: 'awas' },
+    requiresCredentials: false,
+    credentialKey: 'GITHUB_TOKEN',
+  },
+  'github-list-prs': {
+    name: 'GitHub Pull Requests Explorer',
+    category: 'Code & Repositories',
+    icon: 'GitPullRequest',
+    sampleInput: { owner: 'devansh18', repo: 'awas', state: 'open' },
+    requiresCredentials: false,
+    credentialKey: 'GITHUB_TOKEN',
+  },
   'github-get-pr-diff': {
     name: 'GitHub PR Diff Auditor',
     category: 'Code & Repositories',
@@ -545,7 +559,16 @@ export async function executeToolById(
   }
 
   try {
-    const result = await tool.execute(inputData ?? {}, context);
+    let result;
+    try {
+      result = await tool.execute(inputData ?? {}, context);
+    } catch (directErr: any) {
+      if (inputData && typeof inputData === 'object' && !inputData.context) {
+        result = await tool.execute({ context: inputData, ...context });
+      } else {
+        throw directErr;
+      }
+    }
     const latencyMs = Date.now() - startTime;
     return {
       success: true,

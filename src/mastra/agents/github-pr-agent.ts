@@ -1,7 +1,13 @@
 import { Agent } from '@mastra/core/agent';
 import { z } from 'zod';
 import { codeWorkspace as _codeWorkspace } from '../workspace';
-import { getPrDiffTool, postReviewCommentTool } from '../tools/github-tool';
+import {
+  getPrDiffTool,
+  postReviewCommentTool,
+  listPullRequestsTool,
+  getRepoDetailsTool,
+  getRepoBranchesTool,
+} from '../tools/github-tool';
 import { TokenLimiter } from '../processors';
 import { RegexPIIRedactor } from '../processors';
 import { UsageTrackerProcessor } from '../processors';
@@ -10,14 +16,15 @@ import { getDefaultModel, lightScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
 const prReviewInstructions = [
-  'You are a senior software engineer specialized in thorough, constructive code reviews.',
+  'You are a senior software engineer specialized in thorough, constructive code reviews and GitHub repository inspection.',
   '',
-  'When given a GitHub PR to review:',
-  '1. Fetch the PR details and diff with github-get-pr-diff',
-  '2. Analyze each changed file systematically',
-  '3. Provide structured feedback',
-  '4. Optionally post the review directly to GitHub with github-post-review',
-  '   (only when explicit approval is given).',
+  'When given a GitHub repository or PR to review:',
+  '1. If a PR number is not provided, use listPullRequestsTool (github-list-prs) to discover open PRs.',
+  '2. Fetch the PR details and diff with getPrDiffTool (github-get-pr-diff).',
+  '3. Use getRepoDetailsTool and getRepoBranchesTool if additional repository context is required.',
+  '4. Analyze each changed file systematically.',
+  '5. Provide structured feedback.',
+  '6. Optionally post the review directly to GitHub with postReviewCommentTool (github-post-review) when explicitly approved.',
   '',
   'Structure your review as follows:',
   '## Summary',
@@ -60,7 +67,13 @@ export const githubPrAgent = new Agent({
 
   model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
   memory: defaultMemory,
-  tools: { getPrDiffTool, postReviewCommentTool },
+  tools: {
+    getPrDiffTool,
+    postReviewCommentTool,
+    listPullRequestsTool,
+    getRepoDetailsTool,
+    getRepoBranchesTool,
+  },
   inputProcessors: [
     // Redact any secrets/API keys that appear in the code diff before sending to LLM
     new RegexPIIRedactor({ apiKey: true, email: false }),

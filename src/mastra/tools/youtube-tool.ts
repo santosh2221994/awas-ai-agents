@@ -21,7 +21,11 @@ function extractVideoId(input: string): string {
 export const getVideoMetaTool = createTool({
   id: 'youtube-get-metadata',
   description: 'Fetch YouTube video metadata (title, channel, duration, description).',
-  inputSchema: z.object({ videoIdOrUrl: z.string().describe('YouTube video ID or full URL') }),
+  inputSchema: z.object({
+    videoIdOrUrl: z.string().optional().describe('YouTube video ID or full URL'),
+    videoUrl: z.string().optional().describe('YouTube video URL'),
+    url: z.string().optional().describe('Video URL alias'),
+  }),
   outputSchema: z.object({
     videoId: z.string(),
     title: z.string(),
@@ -32,17 +36,18 @@ export const getVideoMetaTool = createTool({
     description: z.string(),
   }),
   execute: async (inputData) => {
-    const videoId = extractVideoId(inputData.videoIdOrUrl);
+    const raw = inputData.videoIdOrUrl || inputData.videoUrl || inputData.url || 'dQw4w9WgXcQ';
+    const videoId = extractVideoId(raw);
     const apiKey = process.env.YOUTUBE_API_KEY;
     if (!apiKey) {
       return {
         videoId,
-        title: 'Introduction to Mastra AI Framework (Demo)',
-        channel: 'Mastra Engineering',
+        title: 'Introduction to Autonomous AI Agents (Platform Demo)',
+        channel: 'AWAS Platform',
         publishedAt: '2024-03-15T10:00:00Z',
         duration: 'PT18M32S',
         viewCount: 42500,
-        description: 'In this video we introduce the Mastra AI framework for building TypeScript AI agents...',
+        description: 'In this video we introduce the platform framework for building autonomous agents...',
       };
     }
     const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${videoId}&key=${apiKey}`;
@@ -73,7 +78,9 @@ export const getVideoTranscriptTool = createTool({
   id: 'youtube-get-transcript',
   description: 'Fetch the transcript/captions of a YouTube video as timestamped segments.',
   inputSchema: z.object({
-    videoIdOrUrl: z.string(),
+    videoIdOrUrl: z.string().optional().describe('YouTube video ID or URL'),
+    videoUrl: z.string().optional().describe('YouTube video URL'),
+    url: z.string().optional().describe('Video URL alias'),
     language: z.string().default('en'),
   }),
   outputSchema: z.object({
@@ -82,19 +89,20 @@ export const getVideoTranscriptTool = createTool({
     fullText: z.string(),
   }),
   execute: async (inputData) => {
-    const videoId = extractVideoId(inputData.videoIdOrUrl);
+    const raw = inputData.videoIdOrUrl || inputData.videoUrl || inputData.url || 'dQw4w9WgXcQ';
+    const videoId = extractVideoId(raw);
     // Captions API requires OAuth — use demo transcript
     const segments = [
-      { start: 0, duration: 30, text: 'Welcome to this introduction of the Mastra AI framework.' },
-      { start: 30, duration: 45, text: 'Mastra is a TypeScript framework designed for building production-ready AI agents and workflows.' },
+      { start: 0, duration: 30, text: 'Welcome to this introduction of the AWAS agentic automation platform.' },
+      { start: 30, duration: 45, text: 'AWAS provides specialized autonomous agents for code review, research, and data operations.' },
       { start: 75, duration: 40, text: 'Today we will cover the core concepts: agents, tools, workflows, and memory.' },
-      { start: 115, duration: 50, text: 'An agent in Mastra is powered by a large language model and can use tools to interact with the world.' },
+      { start: 115, duration: 50, text: 'An agent is powered by large language models and can use tools to interact with the world.' },
       { start: 165, duration: 45, text: 'Tools are TypeScript functions with Zod input and output schemas. The agent calls them automatically.' },
       { start: 210, duration: 55, text: 'Workflows chain multiple steps together, with each step having typed inputs and outputs.' },
       { start: 265, duration: 40, text: 'Memory allows agents to remember past conversations and store long-term facts about users.' },
-      { start: 305, duration: 50, text: 'Mastra Studio is a local web UI at port 4111 where you can test agents and view workflow traces.' },
-      { start: 355, duration: 45, text: 'Getting started is simple: run npx create-mastra-app@latest and follow the prompts.' },
-      { start: 400, duration: 35, text: 'Thank you for watching. Check the documentation at mastra.ai/docs for more information.' },
+      { start: 305, duration: 50, text: 'The platform provides an intuitive web UI where you can test agents and view traces.' },
+      { start: 355, duration: 45, text: 'Getting started is simple with pre-configured templates and custom agent creation.' },
+      { start: 400, duration: 35, text: 'Thank you for watching. Check the documentation for more information.' },
     ];
     const fullText = segments.map((s) => `[${s.start}s] ${s.text}`).join('\n');
     return { videoId, segments, fullText };

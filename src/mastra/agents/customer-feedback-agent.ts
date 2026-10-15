@@ -1,10 +1,13 @@
 import { Agent } from '@mastra/core/agent';
+import { exaSearchTool } from '../tools/exa-search-tool';
+import { parseCsvTool, analyzeColumnTool } from '../tools/csv-tool';
 import { requestContextSchema } from '../context';
 import { defaultMemory } from '../memory';
 import { getDefaultModel, defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
 
-export const customerFeedbackAgent = new Agent({  id: 'customer-feedback-agent',
+export const customerFeedbackAgent = new Agent({
+  id: 'customer-feedback-agent',
   name: 'Customer Feedback Summarization Agent',
   description: 'Analyzes and summarizes customer feedback, extracts sentiment, themes, and actionable insights.',
   instructions: `You are a customer insights analyst specializing in feedback analysis and actionable reporting.
@@ -43,6 +46,7 @@ Paste customer feedback below, or describe the source (support tickets, app revi
   model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
   memory: defaultMemory,
   requestContextSchema,
+  tools: { exaSearchTool, parseCsvTool, analyzeColumnTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────
   scorers: defaultScorerConfig(),
   options: {

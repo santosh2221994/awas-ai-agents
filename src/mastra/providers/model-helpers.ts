@@ -73,7 +73,7 @@ export function getTokenLimit(): number {
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   const gatewayKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY;
   const isCloud = (key && key !== 'your-google-api-key') || gatewayKey || process.env.GROQ_API_KEY;
-  
+
   // For local LM Studio, default context limit is 7,500 to comfortably fit under LM Studio's 8,192 (n_ctx) window
   return isCloud ? 100_000 : 7_500;
 }

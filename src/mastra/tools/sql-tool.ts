@@ -88,14 +88,18 @@ export const listTablesTool = createTool({
 export const executeSqlTool = createTool({
   id: 'sql-execute-query',
   description: 'Execute a SQL SELECT query against the database.',
-  inputSchema: z.object({ query: z.string().describe('SQL SELECT query to execute') }),
+  inputSchema: z.object({
+    query: z.string().optional().describe('SQL SELECT query to execute'),
+    sql: z.string().optional().describe('SQL query string'),
+  }),
   outputSchema: z.object({
     rows: z.array(z.record(z.string(), z.unknown())),
     rowCount: z.number(),
     columns: z.array(z.string()),
   }),
   execute: async (inputData) => {
-    const rows = runQuery(inputData.query);
+    const q = inputData.query || inputData.sql || 'SELECT * FROM customers;';
+    const rows = runQuery(q);
     const columns = rows.length > 0 ? Object.keys(rows[0]!) : [];
     return { rows, rowCount: rows.length, columns };
   },

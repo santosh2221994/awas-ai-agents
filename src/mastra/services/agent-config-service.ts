@@ -41,9 +41,9 @@ export interface AgentGlobalConfig {
 export const GLOBAL_AGENT_CONFIG: AgentGlobalConfig = {
   defaultProvider: ((process.env.DEFAULT_PROVIDER || process.env.MODEL_PROVIDER || 'auto') as AgentGlobalConfig['defaultProvider']),
   defaultExecutionMode: ((process.env.DEFAULT_EXECUTION_MODE || process.env.EXECUTION_MODE || 'auto') as AgentGlobalConfig['defaultExecutionMode']),
-  groqModelId: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-  geminiModelId: process.env.GEMINI_MODEL || 'google/gemini-2.0-flash',
-  lmStudioModelId: process.env.LM_STUDIO_MODEL || 'google/gemma-3-4b',
+  groqModelId: process.env.GROQ_MODEL || 'openai/gpt-oss-20b',
+  geminiModelId: process.env.GEMINI_MODEL || 'google/gemini-3.8-flash',
+  lmStudioModelId: process.env.LM_STUDIO_MODEL || 'openai/gpt-oss-20b',
   ollamaModelId: process.env.OLLAMA_MODEL || 'llama3.2',
   openaiModelId: process.env.OPENAI_MODEL || 'gpt-4o',
   defaultTokenLimit: 100_000,
@@ -69,7 +69,7 @@ export function resolveAgentModel(modelOverride?: string, context?: any): any {
       try {
         const val = reqContext.get(key);
         if (val !== undefined && val !== null) return String(val);
-      } catch {}
+      } catch { }
     }
     if (reqContext[key] !== undefined && reqContext[key] !== null) {
       return String(reqContext[key]);
@@ -155,11 +155,23 @@ export function resolveAgentModel(modelOverride?: string, context?: any): any {
     if (effectiveModel.startsWith('gemini:') || effectiveModel.startsWith('google:')) {
       return geminiModel(effectiveModel.replace(/^(gemini|google):/, ''));
     }
-    if (effectiveModel.startsWith('google/gemini')) {
+    if (effectiveModel.startsWith('google/gemini') || effectiveModel.startsWith('gemini') || effectiveModel.includes('gemini')) {
       return geminiModel(effectiveModel);
+    }
+    if (effectiveModel.startsWith('local-hardware') || effectiveModel.includes('lm-studio')) {
+      return lmStudioModel(GLOBAL_AGENT_CONFIG.lmStudioModelId, contextBaseUrl);
+    }
+    if (effectiveModel.startsWith('llama') || effectiveModel.includes('llama')) {
+      return groqModel(effectiveModel);
+    }
+    if (effectiveModel.startsWith('gpt-')) {
+      return openaiModel(effectiveModel);
     }
     if (effectiveModel.includes('mistral') || effectiveModel.includes('gemma') || effectiveModel.includes('nemotron') || effectiveModel.includes('qwen') || effectiveModel.includes('glm')) {
       return lmStudioModel(effectiveModel, contextBaseUrl);
+    }
+    if (hasGoogleCredentials()) {
+      return geminiModel(effectiveModel);
     }
     return effectiveModel;
   }
@@ -167,7 +179,7 @@ export function resolveAgentModel(modelOverride?: string, context?: any): any {
   // ── 4. User Tier Based Routing ───────────────────────────────────────────────
   if (contextTier === 'enterprise') {
     if (hasGoogleCredentials()) {
-      return geminiModel('google/gemini-2.0-flash');
+      return geminiModel('google/gemini-3.8-flash');
     }
     return lmStudioModel('google/gemma-4-12b-qat');
   }
@@ -196,7 +208,11 @@ export function resolveAgentModel(modelOverride?: string, context?: any): any {
     return openaiModel(GLOBAL_AGENT_CONFIG.openaiModelId);
   }
 
-  // Auto mode fallback: Google Gemini if credentials exist, else local LM Studio
+  // Auto mode fallback: Groq if key configured (high availability), else Google Gemini, else local LM Studio
+  if (process.env.GROQ_API_KEY) {
+    return groqModel(GLOBAL_AGENT_CONFIG.groqModelId);
+  }
+
   if (hasGoogleCredentials()) {
     return geminiModel(GLOBAL_AGENT_CONFIG.geminiModelId);
   }

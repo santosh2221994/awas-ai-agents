@@ -12,57 +12,146 @@ import { exaSearchTool } from '../tools/exa-search-tool';
 import { calculatorWithUITool } from '../tools/calculator-ui-tool';
 import { weatherTool } from '../tools/weather-tool';
 import { listTablesTool, executeSqlTool } from '../tools/sql-tool';
-import { parseCsvTool, analyzeColumnTool } from '../tools/csv-tool';
+import { parseCsvTool, analyzeColumnTool, generateCsvTool } from '../tools/csv-tool';
 import { loadPdfTool, searchPdfTool } from '../tools/pdf-tool';
 import { readSheetTool, writeSheetTool } from '../tools/google-sheets-tool';
-import { getPrDiffTool, postReviewCommentTool } from '../tools/github-tool';
+import { getPrDiffTool, postReviewCommentTool, getRepoBranchesTool, getRepoDetailsTool, listPullRequestsTool, listUserReposTool } from '../tools/github-tool';
 import { listSlackChannelsTool, readSlackChannelTool, sendSlackMessageTool } from '../tools/slack-tool';
 import { getVideoMetaTool, getVideoTranscriptTool } from '../tools/youtube-tool';
 import { browseUrlTool, searchWebTool, extractPageDataTool } from '../tools/browser-tool';
+import { listRepositoryAgentsTool } from '../tools/list-repository-agents-tool';
+import { createNewAgentTool } from '../tools/create-new-agent-tool';
+import { generateCanvasWorkflowTool } from '../tools/generate-canvas-workflow-tool';
 
 export const AVAILABLE_TOOLS_MAP: Record<string, any> = {
+  // Browser tools
   browseUrlTool,
   searchWebTool,
   extractPageDataTool,
   'browser-tool': browseUrlTool,
   'browser_tool': browseUrlTool,
   'browser-read-url': browseUrlTool,
+  'read-url': browseUrlTool,
   'browser-web-search': searchWebTool,
+  'web-search': searchWebTool,
   'browser-extract-data': extractPageDataTool,
+
+  // Skills
   skillListTool,
   'skill-list-tool': skillListTool,
   'skill_list': skillListTool,
+  'skill-list': skillListTool,
+
+  // Search
   exaSearchTool,
   'exa-search-tool': exaSearchTool,
   'exa-search': exaSearchTool,
+
+  // Math
   calculatorWithUITool,
   'calculator-ui-tool': calculatorWithUITool,
   'calculator_with_ui': calculatorWithUITool,
+  'calculator': calculatorWithUITool,
+
+  // Weather
   weatherTool,
   'weather-tool': weatherTool,
   'get-weather': weatherTool,
+  'weather': weatherTool,
+
+  // SQL
   listTablesTool,
   executeSqlTool,
   'sql-tool': executeSqlTool,
+  'sql-execute-query': executeSqlTool,
+  'execute-sql': executeSqlTool,
+  'sql-list-tables': listTablesTool,
+  'sql-describe-table': listTablesTool,
+  'describe-table': listTablesTool,
+  'list-tables': listTablesTool,
+
+  // CSV
   parseCsvTool,
   analyzeColumnTool,
+  generateCsvTool,
   'csv-tool': parseCsvTool,
+  'csv-parse': parseCsvTool,
+  'csv-parser': parseCsvTool,
+  'csv-analyze-column': analyzeColumnTool,
+  'csv-generate': generateCsvTool,
+  'generate-csv': generateCsvTool,
+  'csv-creator': generateCsvTool,
+  'create-csv': generateCsvTool,
+  'csv-export': generateCsvTool,
+
+  // PDF
   loadPdfTool,
   searchPdfTool,
   'pdf-tool': loadPdfTool,
+  'pdf-load': loadPdfTool,
+  'pdf-parse': loadPdfTool,
+  'pdf-search': searchPdfTool,
+
+  // Google Sheets
   readSheetTool,
   writeSheetTool,
   'google-sheets-tool': readSheetTool,
+  'google-sheets-read': readSheetTool,
+  'read-sheet': readSheetTool,
+  'google-sheets-write': writeSheetTool,
+  'write-sheet': writeSheetTool,
+
+  // GitHub
   getPrDiffTool,
   postReviewCommentTool,
-  'github-tool': getPrDiffTool,
+  getRepoBranchesTool,
+  getRepoDetailsTool,
+  listPullRequestsTool,
+  listUserReposTool,
+  'github-tool': listUserReposTool,
+  'github-list-repos': listUserReposTool,
+  'github-repos': listUserReposTool,
+  'github-get-branches': getRepoBranchesTool,
+  'github-get-repo-branches': getRepoBranchesTool,
+  'github-list-branches': getRepoBranchesTool,
+  'github-branches': getRepoBranchesTool,
+  'github-get-repo-details': getRepoDetailsTool,
+  'github-repo-details': getRepoDetailsTool,
+  'github-list-prs': listPullRequestsTool,
+  'github-prs': listPullRequestsTool,
+  'github-get-pr-diff': getPrDiffTool,
+  'github-pr-diff': getPrDiffTool,
+  'github-post-review': postReviewCommentTool,
+  'github-post-review-comment': postReviewCommentTool,
+
+  // Slack
   listSlackChannelsTool,
   readSlackChannelTool,
   sendSlackMessageTool,
   'slack-tool': sendSlackMessageTool,
+  'slack-send-message': sendSlackMessageTool,
+  'slack-list-channels': listSlackChannelsTool,
+  'slack-read-channel': readSlackChannelTool,
+  'slack-read-messages': readSlackChannelTool,
+
+  // YouTube
   getVideoMetaTool,
   getVideoTranscriptTool,
   'youtube-tool': getVideoMetaTool,
+  'youtube-get-metadata': getVideoMetaTool,
+  'youtube-get-meta': getVideoMetaTool,
+  'youtube-get-transcript': getVideoTranscriptTool,
+
+  // Studio Workflow Tools
+  listRepositoryAgentsTool,
+  createNewAgentTool,
+  generateCanvasWorkflowTool,
+  'list-repository-agents': listRepositoryAgentsTool,
+  'list-repository-agents-tool': listRepositoryAgentsTool,
+  'create-new-agent': createNewAgentTool,
+  'create-new-agent-tool': createNewAgentTool,
+  'generate-canvas-workflow': generateCanvasWorkflowTool,
+  'generate-canvas-workflow-tool': generateCanvasWorkflowTool,
 };
 
 export interface DynamicAgentOptions {
@@ -101,7 +190,9 @@ Your primary mission:
   };
 
   if (Array.isArray(options?.tools)) {
-    for (const toolKey of options.tools) {
+    for (const item of options.tools) {
+      const toolKey = typeof item === 'string' ? item : (item?.id || item?.name || '');
+      if (!toolKey) continue;
       const resolved = AVAILABLE_TOOLS_MAP[toolKey] || AVAILABLE_TOOLS_MAP[toolKey.toLowerCase()];
       if (resolved) {
         const id = resolved.id || toolKey;

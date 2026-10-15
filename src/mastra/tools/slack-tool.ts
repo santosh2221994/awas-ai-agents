@@ -63,13 +63,15 @@ export const readSlackChannelTool = createTool({
   id: 'slack-read-messages',
   description: 'Read the latest messages from a Slack channel.',
   inputSchema: z.object({
-    channelId: z.string().describe('Slack channel ID (e.g. C001ABCD)'),
+    channelId: z.string().optional().describe('Slack channel ID (e.g. C001ABCD)'),
+    channel: z.string().optional().describe('Channel name or ID'),
     limit: z.number().default(10).describe('Number of messages to retrieve'),
   }),
   outputSchema: z.object({
     messages: z.array(z.object({ text: z.string(), author: z.string(), timestamp: z.string() })),
   }),
   execute: async (inputData) => {
+    const channel = inputData.channelId || inputData.channel || 'C001';
     if (!process.env.SLACK_BOT_TOKEN) {
       return {
         messages: [
@@ -79,7 +81,7 @@ export const readSlackChannelTool = createTool({
         ],
       };
     }
-    const data = await slackFetch('conversations.history', { channel: inputData.channelId, limit: inputData.limit }) as {
+    const data = await slackFetch('conversations.history', { channel, limit: inputData.limit }) as {
       messages: Array<{ text: string; username?: string; user?: string; ts: string }>;
     };
     return {
@@ -96,15 +98,19 @@ export const sendSlackMessageTool = createTool({
   id: 'slack-send-message',
   description: 'Send a message to a Slack channel.',
   inputSchema: z.object({
-    channelId: z.string().describe('Slack channel ID or name'),
-    text: z.string().describe('Message text (supports markdown)'),
+    channelId: z.string().optional().describe('Slack channel ID or name'),
+    channel: z.string().optional().describe('Channel name or ID'),
+    text: z.string().optional().describe('Message text (supports markdown)'),
+    message: z.string().optional().describe('Message text alias'),
   }),
   outputSchema: z.object({ success: z.boolean(), messageTs: z.string().optional(), note: z.string().optional() }),
   execute: async (inputData) => {
+    const channel = inputData.channelId || inputData.channel || '#general';
+    const text = inputData.text || inputData.message || 'Notification from platform agent';
     if (!process.env.SLACK_BOT_TOKEN) {
       return { success: true, messageTs: String(Date.now()), note: '(stub) Set SLACK_BOT_TOKEN to send real messages.' };
     }
-    const data = await slackFetch('chat.postMessage', { channel: inputData.channelId, text: inputData.text }) as { ts: string };
+    const data = await slackFetch('chat.postMessage', { channel, text }) as { ts: string };
     return { success: true, messageTs: data.ts };
   },
 });

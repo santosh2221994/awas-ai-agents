@@ -21,9 +21,12 @@ export const groq = createOpenAI({
  * @param modelId  Defaults to GROQ_MODEL env var or 'llama-3.3-70b-versatile'.
  */
 export function groqModel(modelId?: string) {
-  const id =
+  let id =
     modelId ??
     process.env.GROQ_MODEL ??
-    'llama-3.3-70b-versatile';
+    'openai/gpt-oss-20b';
+  if (id.includes('llama-3.3-70b') || id === 'llama' || id === 'default') {
+    id = 'openai/gpt-oss-20b';
+  }
   return groq.chat(id);
 }

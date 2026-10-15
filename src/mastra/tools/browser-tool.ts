@@ -24,10 +24,10 @@ function htmlToText(html: string): string {
 
 export const browseUrlTool = createTool({
   id: 'browser-read-url',
-  description: 'Fetch and read the text content of a URL.',
+  description: 'Fetch and read the text content of a URL (e.g. https://www.qdesq.com or qdesq.com).',
   inputSchema: z.object({
-    url: z.string().url().describe('The URL to read'),
-    maxChars: z.number().default(5000).describe('Maximum characters to return'),
+    url: z.string().describe('The URL or domain to read, e.g. qdesq.com or https://www.qdesq.com/coworking-space/delhi'),
+    maxChars: z.number().default(6000).describe('Maximum characters to return'),
   }),
   outputSchema: z.object({
     url: z.string(),
@@ -37,15 +37,23 @@ export const browseUrlTool = createTool({
   }),
   execute: async (inputData) => {
     try {
-      const res = await fetch(inputData.url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MastraBot/1.0)' },
-        signal: AbortSignal.timeout(10000),
+      let targetUrl = (inputData.url || '').trim();
+      if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+        targetUrl = `https://${targetUrl}`;
+      }
+      const res = await fetch(targetUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        signal: AbortSignal.timeout(12000),
       });
       const html = await res.text();
       const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
       const title = titleMatch?.[1]?.trim();
-      const text = htmlToText(html).slice(0, inputData.maxChars);
-      return { url: inputData.url, title, text, statusCode: res.status };
+      const text = htmlToText(html).slice(0, inputData.maxChars ?? 6000);
+      return { url: targetUrl, title, text, statusCode: res.status };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return { url: inputData.url, text: `Error fetching page: ${msg}`, statusCode: 0 };
@@ -67,7 +75,7 @@ export const searchWebTool = createTool({
     try {
       const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(inputData.query)}`;
       const res = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MastraBot/1.0)' },
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AWASBot/1.0)' },
         signal: AbortSignal.timeout(10000),
       });
       const html = await res.text();

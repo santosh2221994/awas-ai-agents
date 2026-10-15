@@ -1,6 +1,6 @@
 import { Agent } from '@mastra/core/agent';
 import { readonlyWorkspace } from '../workspace';
-import { browseUrlTool } from '../tools/browser-tool';
+import { browseUrlTool, searchWebTool } from '../tools/browser-tool';
 import { defaultMemory } from '../memory';
 import { getDefaultModel, defaultScorerConfig } from '../providers/model-helpers';
 import { defaultTracingPolicy } from '../observability';
@@ -13,6 +13,7 @@ export const docsChatbotAgent = new Agent({  id: 'docs-chatbot-agent',
 
 You can:
 - Fetch and read any documentation page by URL
+- Search online docs using searchWebTool
 - Answer questions about APIs, frameworks, and libraries
 - Find relevant sections in docs and quote them directly
 - Explain complex technical concepts from the docs in simple terms
@@ -20,20 +21,20 @@ You can:
 
 How to use:
 - Provide a docs URL and ask a question
-- Or ask about a topic and I will try to find it in the docs
+- Or ask about a topic and I will search and find it in the docs
 - Say "summarize this page: [url]" for a quick overview
 
-Default documentation: Mastra AI (https://mastra.ai/docs)
-I can also answer questions about any other documentation site — just provide the URL.
+Default documentation: Platform Documentation
+I can also answer questions about any other documentation site — just provide the URL or topic.
 
 When answering:
-1. Fetch the relevant documentation page
+1. Search or fetch the relevant documentation page
 2. Quote the specific relevant section
 3. Explain it in plain language
 4. Provide links to related sections`,
   model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
   memory: defaultMemory,
-  tools: { browseUrlTool },
+  tools: { browseUrlTool, searchWebTool },
   // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────
   scorers: defaultScorerConfig(),
   options: {

@@ -1,6 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { readonlyWorkspace } from '../workspace';
 import { exaSearchTool, exaScrapePageTool } from '../tools/exa-search-tool';
+import { getVideoMetaTool, getVideoTranscriptTool } from '../tools/youtube-tool';
 import { TokenLimiter, ToolCallFilter } from '../processors';
 import { EnsureFinalResponseProcessor } from '../processors';
 import { UsageTrackerProcessor } from '../processors';
@@ -40,7 +41,7 @@ export const videoIdeaGenagent = new Agent({
 
   model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
 
-  tools: { exaSearchTool, exaScrapePageTool },
+  tools: { exaSearchTool, exaScrapePageTool, getVideoMetaTool, getVideoTranscriptTool },
 
   // Processors — run in order for each LLM call
   inputProcessors: [

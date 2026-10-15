@@ -9,14 +9,17 @@
  * or GEMINI_API_KEY is present in environment.
  */
 
-export const DEFAULT_GEMINI_MODEL = 'google/gemini-2.0-flash';
+export const DEFAULT_GEMINI_MODEL = 'google/gemini-3.8-flash';
 
 /**
  * Normalizes model ID to canonical Google format.
  */
 export function geminiModel(modelId?: string): string {
   if (!modelId) return DEFAULT_GEMINI_MODEL;
-  const cleaned = modelId.replace(/^(google|gemini):/, '');
+  let cleaned = modelId.replace(/^(google|gemini):/, '');
+  if (cleaned.includes('gemini-2.5') || cleaned.includes('gemini-2.0') || cleaned === 'gemini-flash' || cleaned === 'default') {
+    cleaned = 'gemini-3.8-flash';
+  }
   return cleaned.startsWith('google/') ? cleaned : `google/${cleaned}`;
 }
 

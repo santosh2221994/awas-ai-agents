@@ -79,6 +79,7 @@ import { pdfChatAgent } from './agents/pdf-chat-agent';
 import { flashCardsAgent } from './agents/flash-cards-agent';
 import { csvQuestionsAgent } from './agents/csv-questions-agent';
 import { githubPrAgent } from './agents/github-pr-agent';
+import { githubRepoAgent } from './agents/github-repo-agent';
 import { docsChatbotAgent } from './agents/docs-chatbot-agent';
 import { youtubeChatAgent } from './agents/youtube-chat-agent';
 import { slackAgent } from './agents/slack-agent';
@@ -160,6 +161,8 @@ const allAgents: Record<string, any> = {
   'flash-cards-agent': flashCardsAgent,
   'csv-questions-agent': csvQuestionsAgent,
   'github-pr-agent': githubPrAgent,
+  'github-repo-agent': githubRepoAgent,
+  'github-agent': githubRepoAgent,
   'docs-chatbot-agent': docsChatbotAgent,
   'youtube-chat-agent': youtubeChatAgent,
   'slack-agent': slackAgent,

@@ -1,6 +1,7 @@
 import { Agent } from '@mastra/core/agent';
-import { codeWorkspace } from '../workspace';
 import { browser } from '../browsers';
+import { browseUrlTool, searchWebTool, extractPageDataTool } from '../tools/browser-tool';
+import { generateCsvTool, parseCsvTool } from '../tools/csv-tool';
 import { TokenLimiter, EnsureFinalResponseProcessor, UsageTrackerProcessor } from '../processors';
 import { defaultMemory } from '../memory';
 import { getDefaultModel, lightScorerConfig } from '../providers/model-helpers';
@@ -11,11 +12,17 @@ const BROWSER_MAX_STEPS = 15;
 export const browserAgent = new Agent({
   id: 'browser-agent',
   name: 'Browser Agent',
-  description: 'A real-browser web automation assistant powered by Playwright/Chromium.',
-  workspace: codeWorkspace,
+  description: 'A real-browser web automation assistant powered by intelligent web browsing tools and CSV export.',
   model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
   memory: defaultMemory,
   browser,
+  tools: {
+    browseUrlTool,
+    searchWebTool,
+    extractPageDataTool,
+    generateCsvTool,
+    parseCsvTool,
+  },
   instructions: `You are a web automation assistant with full control of a real Chromium browser.
 
 You can navigate any website, fill forms, click buttons, and extract data.
