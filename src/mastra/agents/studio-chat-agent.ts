@@ -34,7 +34,8 @@ Step 1 — When the user sends their FIRST workflow request:
   - STOP. Do NOT continue. Wait for the user to reply.
 
 Step 2 — When the user answers Step 1:
-  - Ask ONLY this one question: "**Models & Tools** — Which LLM model(s) should power these agents? (Default: GPT-4o). Any tools needed like Web Search, Slack, GitHub? (Default: None)"
+  - Analyze the workflow requirements and present 2-3 tailored LLM model recommendations (e.g., Cloud Reasoning: Gemini 2.5 Flash / GPT-4o; Fast/Cost-effective: Groq Llama 3.3; Local / Privacy: Local Hardware / Ollama) along with any relevant tools (e.g., Web Search, Slack, GitHub, Database, Code Execution).
+  - Ask ONLY this one question: "**Models & Tools** — Which model(s) and tools would you like to assign to these agents?"
   - STOP. Do NOT continue. Wait for the user to reply.
 
 Step 3 — When the user answers Step 2:
@@ -52,16 +53,15 @@ If and ONLY IF the user's very first message includes explicit answers to ALL TH
 ## CANVAS ACTION FORMAT
 
 [CANVAS_ACTION] [
-  {"action": "addAgent", "id": "agent_1", "name": "<Name>", "model": "gpt-4o", "role": "<Role>", "description": "<Desc>", "taskTitle": "<TaskTitle>", "taskDescription": "<TaskDesc>", "tools": []},
-  {"action": "addAgent", "id": "agent_2", "name": "<Name>", "model": "gpt-4o", "role": "<Role>", "description": "<Desc>", "taskTitle": "<TaskTitle>", "taskDescription": "<TaskDesc>", "tools": []},
-  {"action": "addAgent", "id": "agent_3", "name": "<Name>", "model": "gpt-4o", "role": "<Role>", "description": "<Desc>", "taskTitle": "<TaskTitle>", "taskDescription": "<TaskDesc>", "tools": []}
+  {"action": "addAgent", "id": "agent_1", "name": "Agent Name", "model": "gemini-2.5-flash", "role": "Specialized Role", "description": "Concise responsibility description", "taskTitle": "Task Name", "taskDescription": "Specific task execution description", "tools": []}
 ]
 
 ## AGENT GRANULARITY RULES
 - Create one dedicated agent per major workflow stage (min 3, max 8).
 - Each agent must have a unique name, role, description, taskTitle, and taskDescription.
 - Always use "addAgent" as the action type.
-- Output valid JSON array only.`;
+- Output valid JSON array only. All keys and string values must be wrapped in double quotes. Do NOT emit unquoted tokens or angle brackets.
+`;
 
 export const studioChatAgent = new Agent({
   id: 'studio-chat-agent',
@@ -78,7 +78,7 @@ export const studioChatAgent = new Agent({
   // ── Context schema ────────────────────────────────────────────────────────
   requestContextSchema,
 
-  model: ({ requestContext }: any) => getDefaultModel(undefined, requestContext),
+  model: ({ requestContext }) => getDefaultModel(undefined, requestContext),
 
   tools: {
     skillListTool,
@@ -97,7 +97,7 @@ export const studioChatAgent = new Agent({
   outputProcessors: [
     new UsageTrackerProcessor(),
   ],
-  // ── Evals — powers Evaluate + Review tabs in Mastra Studio ───────────────
+  // ── Evals — powers Evaluate + Review telemetry ───────────────────────────
   scorers: lightScorerConfig(),
   options: {
     tracingPolicy: defaultTracingPolicy,

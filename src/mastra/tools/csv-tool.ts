@@ -83,15 +83,15 @@ export const analyzeColumnTool = createTool({
 
     const stats = isNumeric
       ? {
-          min: Math.min(...nums),
-          max: Math.max(...nums),
-          mean: nums.reduce((a: number, b: number) => a + b, 0) / nums.length,
-          topValues,
-        }
+        min: Math.min(...nums),
+        max: Math.max(...nums),
+        mean: nums.reduce((a: number, b: number) => a + b, 0) / nums.length,
+        topValues,
+      }
       : { topValues };
 
     return {
-      columnName: inputData.columnName,
+      columnName: colName,
       type: isNumeric ? 'numeric' as const : 'categorical' as const,
       count: values.length,
       uniqueCount: Object.keys(freq).length,
