@@ -3,7 +3,9 @@ node_modules
 dist
 .mastra
 .env
-.env*.local
+.env.*
+!.env.example
+.DS_Store
 
 
 *.db
