@@ -91,6 +91,7 @@ import { reactNativeAgent } from './agents/react-native-agent';
 import { translationAgent } from './agents/translation-agent';
 import { studioChatAgent } from './agents/studio-chat-agent';
 import { agentBuilderAgent } from './agents/agent-builder-agent';
+import { imageGenerationAgent } from './agents/image-generation-agent';
 import { createDynamicAgent } from './agents/dynamic-agent-factory';
 import {
   getToolsCatalogue,
@@ -139,6 +140,7 @@ import { textToSqlWorkflow } from './workflows/text-to-sql-workflow';
 import { videoIdeaGenWorkflow } from './workflows/video-idea-gen-workflow';
 import { youtubeChatWorkflow } from './workflows/youtube-chat-workflow';
 import { reactNativeWorkflow } from './workflows/react-native-workflow';
+import { imageGenerationWorkflow } from './workflows/image-generation-workflow';
 
 // ── Browser Workflow (local-only) ────────────────────────────────────────────
 let browserWorkflow: any = undefined;
@@ -175,6 +177,10 @@ const allAgents: Record<string, any> = {
   'translation-agent': translationAgent,
   'studio-chat-agent': studioChatAgent,
   'agent-builder-agent': agentBuilderAgent,
+  'image-generation-agent': imageGenerationAgent,
+  'image-generator-agent': imageGenerationAgent,
+  'text-to-image-agent': imageGenerationAgent,
+  'qwen-image-agent': imageGenerationAgent,
 };
 
 // Conditionally include browser agent (not available on Vercel)
@@ -231,6 +237,8 @@ const allWorkflows: Record<string, any> = {
   videoIdeaGenWorkflow,
   youtubeChatWorkflow,
   'react-native-workflow': reactNativeWorkflow,
+  'image-generation-workflow': imageGenerationWorkflow,
+  imageGenerationWorkflow,
 };
 
 // Conditionally include browser workflow (not available on Vercel)

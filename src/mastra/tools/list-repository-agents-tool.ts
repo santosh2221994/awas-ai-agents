@@ -179,6 +179,12 @@ export const listRepositoryAgentsTool = createTool({
           description: 'Controls a headless Playwright browser for web automation and scraping.',
           tools: ['browser-tool'],
         },
+        'image-generation-agent': {
+          name: 'Image Generation Agent',
+          description:
+            'Generates high-fidelity images using qwen-image-2.1-turbo-uncensored and other state-of-the-art text-to-image models (FLUX, SD 3.5, SDXL, DALL-E 3, Imagen 3). Features visual prompt enhancement, uncensored creative freedom, and multi-model synthesis.',
+          tools: ['generate-image', 'enhance-image-prompt', 'list-image-models'],
+        },
       };
     }
 

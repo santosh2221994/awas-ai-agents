@@ -39,6 +39,11 @@ import { readSheetTool } from '../tools/google-sheets-tool';
 import { parseCsvTool } from '../tools/csv-tool';
 import { skillListTool } from '../tools/skill-list-tool';
 import { calculatorWithUITool } from '../tools/calculator-ui-tool';
+import {
+  generateImageTool,
+  enhanceImagePromptTool,
+  listImageModelsTool,
+} from '../tools/image-generation-tool';
 
 // ── Agents ────────────────────────────────────────────────────────────────────
 import { deepSearchAgent } from '../agents/deep-search-agent';
@@ -55,11 +60,13 @@ import { googleSheetsAgent } from '../agents/google-sheets-agent';
 import { textToSqlAgent } from '../agents/text-to-sql-agent';
 import { weatherAgent } from '../agents/weather-agent';
 import { gemmaAgent } from '../agents/gemma-agent';
+import { imageGenerationAgent } from '../agents/image-generation-agent';
 
 // ── Workflows ─────────────────────────────────────────────────────────────────
 import { deepSearchWorkflow } from '../workflows/deep-search-workflow';
 import { customerFeedbackWorkflow } from '../workflows/customer-feedback-workflow';
 import { weatherWorkflow } from '../workflows/weather-workflow';
+import { imageGenerationWorkflow } from '../workflows/image-generation-workflow';
 
 export const mastraMcpServer = new MCPServer({
   id: 'mastra-tools-server',
@@ -102,6 +109,10 @@ export const mastraMcpServer = new MCPServer({
     skillListTool,
     // MCP App demo
     calculatorWithUITool,
+    // Text-to-Image Synthesis Tools
+    generateImageTool,
+    enhanceImagePromptTool,
+    listImageModelsTool,
   },
 
   // ── Agents (become ask_<key> tools) ───────────────────────────────────────
@@ -120,6 +131,7 @@ export const mastraMcpServer = new MCPServer({
     textToSqlAgent,
     weatherAgent,
     gemmaAgent,
+    imageGenerationAgent,
   } as any,
 
   // ── Workflows (become run_<key> tools) ────────────────────────────────────
@@ -127,6 +139,7 @@ export const mastraMcpServer = new MCPServer({
     deepSearchWorkflow,
     customerFeedbackWorkflow,
     weatherWorkflow,
+    imageGenerationWorkflow,
   } as any,
 
   resources: {

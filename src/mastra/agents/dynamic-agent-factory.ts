@@ -22,6 +22,7 @@ import { browseUrlTool, searchWebTool, extractPageDataTool } from '../tools/brow
 import { listRepositoryAgentsTool } from '../tools/list-repository-agents-tool';
 import { createNewAgentTool } from '../tools/create-new-agent-tool';
 import { generateCanvasWorkflowTool } from '../tools/generate-canvas-workflow-tool';
+import { generateImageTool, enhanceImagePromptTool, listImageModelsTool } from '../tools/image-generation-tool';
 
 export const AVAILABLE_TOOLS_MAP: Record<string, any> = {
   // Browser tools
@@ -152,6 +153,20 @@ export const AVAILABLE_TOOLS_MAP: Record<string, any> = {
   'create-new-agent-tool': createNewAgentTool,
   'generate-canvas-workflow': generateCanvasWorkflowTool,
   'generate-canvas-workflow-tool': generateCanvasWorkflowTool,
+
+  // Text-to-Image Generation Tools (Qwen Image 2.1 Turbo Uncensored + Cloud Diffusion)
+  generateImageTool,
+  enhanceImagePromptTool,
+  listImageModelsTool,
+  'generate-image': generateImageTool,
+  'generate-image-tool': generateImageTool,
+  'image-generation': generateImageTool,
+  'image-generation-tool': generateImageTool,
+  'image-gen': generateImageTool,
+  'enhance-image-prompt': enhanceImagePromptTool,
+  'enhance-image-prompt-tool': enhanceImagePromptTool,
+  'list-image-models': listImageModelsTool,
+  'list-image-models-tool': listImageModelsTool,
 };
 
 export interface DynamicAgentOptions {

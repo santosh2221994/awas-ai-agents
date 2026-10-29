@@ -479,6 +479,65 @@ const TOOL_METADATA_REGISTRY: Record<string, {
     sampleInput: { filter: 'data' },
     requiresCredentials: false,
   },
+  'generate-image': {
+    name: 'Text-to-Image Synthesis',
+    category: 'Image & Media',
+    icon: 'Image',
+    sampleInput: {
+      prompt: 'A cyberpunk street neon reflections rain cyberpunk samurai',
+      model: 'qwen-image-2.1-turbo-uncensored',
+      aspectRatio: '16:9',
+      style: 'cyberpunk',
+      enhancePrompt: true,
+    },
+    requiresCredentials: false,
+  },
+  'generate-image-tool': {
+    name: 'Text-to-Image Synthesis',
+    category: 'Image & Media',
+    icon: 'Image',
+    sampleInput: {
+      prompt: 'A majestic snow leopard on a Himalayan mountain peak, 8k',
+      model: 'qwen-image-2.1-turbo-uncensored',
+      aspectRatio: '1:1',
+      enhancePrompt: true,
+    },
+    requiresCredentials: false,
+  },
+  'enhance-image-prompt': {
+    name: 'Qwen Image Prompt Enhancer',
+    category: 'Image & Media',
+    icon: 'Sparkles',
+    sampleInput: {
+      prompt: 'futuristic flying car over neon metropolis',
+      style: 'cinematic',
+    },
+    requiresCredentials: false,
+  },
+  'enhance-image-prompt-tool': {
+    name: 'Qwen Image Prompt Enhancer',
+    category: 'Image & Media',
+    icon: 'Sparkles',
+    sampleInput: {
+      prompt: 'mystical ancient library with floating books',
+      style: 'dark fantasy',
+    },
+    requiresCredentials: false,
+  },
+  'list-image-models': {
+    name: 'Image Models Discovery',
+    category: 'Image & Media',
+    icon: 'ListFilter',
+    sampleInput: { filterUncensoredOnly: false },
+    requiresCredentials: false,
+  },
+  'list-image-models-tool': {
+    name: 'Image Models Discovery',
+    category: 'Image & Media',
+    icon: 'ListFilter',
+    sampleInput: { filterUncensoredOnly: false },
+    requiresCredentials: false,
+  },
 };
 
 /**
