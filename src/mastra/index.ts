@@ -93,6 +93,7 @@ import { studioChatAgent } from './agents/studio-chat-agent';
 import { agentBuilderAgent } from './agents/agent-builder-agent';
 import { imageGenerationAgent } from './agents/image-generation-agent';
 import { createDynamicAgent } from './agents/dynamic-agent-factory';
+import { GENERATED_IMAGES_ROUTE, readGeneratedImage } from './tools/google-image-provider';
 import {
   getToolsCatalogue,
   executeToolById,
@@ -357,6 +358,21 @@ export const mastra = new Mastra({
 
         const reqPath = c.req.path || c.req.url || '';
         const reqMethod = (c.req.method || 'GET').toUpperCase();
+
+        // ── Generated Images (Google image tool output) ───────────────────────
+        if (reqMethod === 'GET' && reqPath.startsWith(`${GENERATED_IMAGES_ROUTE}/`)) {
+          const fileName = decodeURIComponent(reqPath.slice(GENERATED_IMAGES_ROUTE.length + 1));
+          const img = readGeneratedImage(fileName);
+          if (!img) return c.json({ error: 'Image not found' }, 404);
+          return new Response(new Uint8Array(img.data), {
+            status: 200,
+            headers: {
+              'Content-Type': img.mimeType,
+              'Cache-Control': 'public, max-age=31536000, immutable',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
 
         // ── Tools Catalogue Endpoints ─────────────────────────────────────────
         if ((reqPath === '/api/tools' || reqPath === '/internal/tools') && reqMethod === 'GET') {
