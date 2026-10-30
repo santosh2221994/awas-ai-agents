@@ -65,7 +65,7 @@ const prepareAndEnhancePromptStep = createStep({
 
 const synthesizeImageStep = createStep({
   id: 'synthesize-image',
-  description: 'Generates image using qwen-image-2.1-turbo-uncensored or selected text-to-image model via generateImageTool.',
+  description: 'Generates the image with Google (Gemini image / Imagen) via generateImageTool.',
   inputSchema: z.object({
     originalPrompt: z.string(),
     enhancedPrompt: z.string(),
@@ -107,6 +107,10 @@ const synthesizeImageStep = createStep({
       enhancePrompt: false, // Already enhanced in step 1
       seed: inputData.seed,
     });
+
+    if (!toolResult?.success) {
+      throw new Error(String(toolResult?.error || 'Google image generation failed'));
+    }
 
     return {
       success: Boolean(toolResult?.success),

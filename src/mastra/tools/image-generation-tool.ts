@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { withErrorBoundary } from './tool-helper';
+import { generateGoogleImage } from './google-image-provider';
 
 const DEFAULT_LM_STUDIO_URL =
   process.env.LM_STUDIO_BASE_URL ?? process.env.LMSTUDIO_BASE_URL ?? 'http://127.0.0.1:1234/v1';
@@ -17,6 +18,36 @@ export interface TextToImageModelInfo {
 }
 
 export const TEXT_TO_IMAGE_MODELS_CATALOG: TextToImageModelInfo[] = [
+  {
+    id: 'gemini-3.1-flash-image',
+    name: 'Gemini 3.1 Flash Image (Nano Banana 2)',
+    provider: 'Google Gemini',
+    architecture: 'gemini-native-image',
+    uncensored: false,
+    isLocal: false,
+    description: 'Fast Google native image generation and editing (default, uses GOOGLE_API_KEY).',
+    recommendedFor: ['General image generation', 'Fast iterations', 'Text in images'],
+  },
+  {
+    id: 'gemini-2.5-flash-image',
+    name: 'Gemini 2.5 Flash Image (Nano Banana)',
+    provider: 'Google Gemini',
+    architecture: 'gemini-native-image',
+    uncensored: false,
+    isLocal: false,
+    description: 'Google native image generation model (uses GOOGLE_API_KEY).',
+    recommendedFor: ['General image generation', 'Product shots', 'Illustrations'],
+  },
+  {
+    id: 'gemini-3-pro-image',
+    name: 'Gemini 3 Pro Image (Nano Banana Pro)',
+    provider: 'Google Gemini',
+    architecture: 'gemini-native-image',
+    uncensored: false,
+    isLocal: false,
+    description: 'Highest quality Google native image model (uses GOOGLE_API_KEY).',
+    recommendedFor: ['High-fidelity visuals', 'Complex compositions', 'Infographics'],
+  },
   {
     id: 'qwen-image-2.1-turbo-uncensored',
     name: 'Qwen Image 2.1 Turbo Uncensored',
@@ -234,25 +265,13 @@ export async function enhancePromptWithQwenImage(
   };
 }
 
-/**
- * Maps any model ID to the backend synthesis engine identifier.
- */
-function mapModelToEngine(modelId: string): string {
-  const lower = (modelId || 'qwen-image-2.1-turbo-uncensored').toLowerCase();
-  if (lower.includes('realism') || lower.includes('photo')) return 'flux-realism';
-  if (lower.includes('anime')) return 'flux-anime';
-  if (lower.includes('3d')) return 'flux-3d';
-  if (lower.includes('sdxl') || (lower.includes('turbo') && !lower.includes('qwen'))) return 'turbo';
-  // qwen-image-2.1-turbo-uncensored, qwen-image-2.1-uncensored-quantized, stable-diffusion-3.5-large, flux
-  return 'flux';
-}
-
 export const generateImageTool = createTool({
   id: 'generate-image',
   description:
-    'Generates an image from a text prompt using qwen-image-2.1-turbo-uncensored (default) or other text-to-image models ' +
-    '(qwen-image-2.1-uncensored-quantized, stable-diffusion-3.5-large, moss-image-text-encoder-heretic-dhq, flux, flux-realism, flux-anime, flux-3d, sdxl-turbo, dall-e-3, imagen-3.0-generate-002). ' +
-    'Returns the generated image URL and ready-to-render Markdown.',
+    'Generates an image from a text prompt using Google image models (Gemini image / Imagen) via GOOGLE_API_KEY. ' +
+    'Pass a Google model ID (e.g. "gemini-3.1-flash-image", "gemini-2.5-flash-image", "imagen-4.0-generate-001") to pick one; ' +
+    'any other model ID uses the default Google model chain. Returns the generated image URL and ready-to-render Markdown, ' +
+    'or an error if Google image generation fails.',
   inputSchema: z.object({
     prompt: z.string().describe('Detailed text description of the image to generate'),
     negativePrompt: z
@@ -283,7 +302,7 @@ export const generateImageTool = createTool({
       .boolean()
       .optional()
       .default(true)
-      .describe('Enhance the prompt using local qwen-image-2.1-turbo-uncensored before rendering'),
+      .describe('Enhance the prompt using local qwen-image-2.1-turbo-uncensored (LM Studio) before sending it to Google'),
     seed: z.number().optional().describe('Optional numeric seed for reproducible generation'),
   }),
   outputSchema: z.object({
@@ -318,6 +337,8 @@ export const generateImageTool = createTool({
         contextModel.includes('flux') ||
         contextModel.includes('dall-e') ||
         contextModel.includes('imagen') ||
+        /^gemini.*image/i.test(contextModel) ||
+        contextModel.includes('nano-banana') ||
         contextModel.includes('sdxl') ||
         contextModel.includes('moss-image'));
 
@@ -356,115 +377,9 @@ export const generateImageTool = createTool({
       finalPrompt = `${finalPrompt} [Negative: ${inputData.negativePrompt}]`;
     }
 
-    // Step 2: Check if OpenAI DALL-E 3 is explicitly requested and API key is available
-    const lowerModel = selectedModel.toLowerCase();
-    if (
-      (lowerModel.includes('dall-e') || lowerModel.includes('gpt-image')) &&
-      process.env.OPENAI_API_KEY
-    ) {
-      try {
-        const openaiResp = await fetch('https://api.openai.com/v1/images/generations', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: lowerModel.includes('dall-e-2') ? 'dall-e-2' : 'dall-e-3',
-            prompt: finalPrompt.slice(0, 3800),
-            n: 1,
-            size:
-              aspectRatio === '16:9'
-                ? '1792x1024'
-                : aspectRatio === '9:16'
-                  ? '1024x1792'
-                  : '1024x1024',
-          }),
-          signal: AbortSignal.timeout(25000),
-        });
-        if (openaiResp.ok) {
-          const openaiData = (await openaiResp.json()) as any;
-          const openAiUrl = openaiData?.data?.[0]?.url;
-          if (openAiUrl) {
-            return {
-              success: true,
-              imageUrl: openAiUrl,
-              markdownImage: `![${inputData.prompt.slice(0, 60).replace(/[\[\]]/g, '')}](${openAiUrl})`,
-              originalPrompt: inputData.prompt,
-              enhancedPrompt: openaiData?.data?.[0]?.revised_prompt || finalPrompt,
-              negativePrompt: inputData.negativePrompt,
-              model: selectedModel,
-              provider: 'OpenAI Images API',
-              width,
-              height,
-              aspectRatio,
-              seed,
-              style: inputData.style,
-              usedLocalQwenEncoder: usedLocalQwen,
-              createdAt: new Date().toISOString(),
-            };
-          }
-        }
-      } catch {
-        // Fall through to diffusion synthesis engine
-      }
-    }
-
-    // Step 3: Check if a custom local diffusion server (e.g. ComfyUI / Automatic1111 / LocalAI) is configured
-    const customImageServer = process.env.IMAGE_GEN_BASE_URL || process.env.SD_WEBUI_URL;
-    if (customImageServer) {
-      try {
-        const cleanServer = customImageServer.replace(/\/+$/, '');
-        const genResp = await fetch(`${cleanServer}/v1/images/generations`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: selectedModel,
-            prompt: finalPrompt,
-            size: `${width}x${height}`,
-            seed,
-          }),
-          signal: AbortSignal.timeout(20000),
-        });
-        if (genResp.ok) {
-          const genData = (await genResp.json()) as any;
-          const customUrl = genData?.data?.[0]?.url;
-          if (customUrl) {
-            return {
-              success: true,
-              imageUrl: customUrl,
-              markdownImage: `![${inputData.prompt.slice(0, 60).replace(/[\[\]]/g, '')}](${customUrl})`,
-              originalPrompt: inputData.prompt,
-              enhancedPrompt: finalPrompt,
-              negativePrompt: inputData.negativePrompt,
-              model: selectedModel,
-              provider: 'Local Diffusion Server',
-              width,
-              height,
-              aspectRatio,
-              seed,
-              style: inputData.style,
-              usedLocalQwenEncoder: usedLocalQwen,
-              createdAt: new Date().toISOString(),
-            };
-          }
-        }
-      } catch {
-        // Fall through to diffusion synthesis engine
-      }
-    }
-
-    // Step 4: Synthesize high-resolution image via diffusion pipeline
-    const engineModel = mapModelToEngine(selectedModel);
-    const encodedPrompt = encodeURIComponent(finalPrompt.slice(0, 900));
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed}&model=${engineModel}&nologo=true`;
-
-    const modelMeta = TEXT_TO_IMAGE_MODELS_CATALOG.find(
-      (m) => m.id.toLowerCase() === selectedModel.toLowerCase()
-    );
-    const providerLabel = usedLocalQwen
-      ? `LM Studio (qwen-image-2.1-turbo-uncensored) + ${modelMeta?.name || selectedModel}`
-      : modelMeta?.provider || 'Text-to-Image Synthesis Engine';
+    // Step 2: Generate the image with Google (Gemini image models / Imagen) using GOOGLE_API_KEY.
+    // No non-Google fallback: if Google fails, the tool throws and returns a clear error.
+    const google = await generateGoogleImage(finalPrompt.slice(0, 3800), aspectRatio, selectedModel);
 
     const cleanAlt = inputData.prompt
       .slice(0, 70)
@@ -473,13 +388,15 @@ export const generateImageTool = createTool({
 
     return {
       success: true,
-      imageUrl,
-      markdownImage: `![${cleanAlt || 'Generated Image'}](${imageUrl})`,
+      imageUrl: google.imageUrl,
+      markdownImage: `![${cleanAlt || 'Generated Image'}](${google.imageUrl})`,
       originalPrompt: inputData.prompt,
       enhancedPrompt: finalPrompt,
       negativePrompt: inputData.negativePrompt,
-      model: selectedModel,
-      provider: providerLabel,
+      model: google.model,
+      provider: usedLocalQwen
+        ? `Google (${google.model}) + LM Studio prompt encoder`
+        : `Google (${google.model})`,
       width,
       height,
       aspectRatio,
