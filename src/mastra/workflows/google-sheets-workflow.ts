@@ -1,6 +1,6 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { requestContextSchema } from '../context';
+import { requestContextSchema, commitNamedWorkflow } from '../context';
 
 const readSheetStep = createStep({
   id: 'read-sheet',
@@ -105,4 +105,4 @@ export const googleSheetsWorkflow = createWorkflow({
   .then(analyzeDataStep)
   .then(writeResultsStep);
 
-googleSheetsWorkflow.commit();
+commitNamedWorkflow(googleSheetsWorkflow, 'Google Sheets Data Analysis & Automated Write-Back');

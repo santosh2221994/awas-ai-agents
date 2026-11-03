@@ -65,13 +65,11 @@ if (!isVercel) {
   }
 }
 
-// ── Original example ────────────────────────────────────────────────────────
+// ── Original & Template Agents ──────────────────────────────────────────────
 import { weatherWorkflow } from './workflows/weather-workflow';
 import { weatherAgent } from './agents/weather-agent';
 import { toolCallAppropriatenessScorer, completenessScorer, translationScorer } from './scorers/weather-scorer';
 import { agentScorers } from './scorers/agent-scorers';
-
-// ── Template Agents ──────────────────────────────────────────────────────────
 import { deepSearchAgent } from './agents/deep-search-agent';
 import { googleSheetsAgent } from './agents/google-sheets-agent';
 import { textToSqlAgent } from './agents/text-to-sql-agent';
@@ -96,13 +94,13 @@ import { createDynamicAgent } from './agents/dynamic-agent-factory';
 import { GENERATED_IMAGES_ROUTE, readGeneratedImage } from './tools/google-image-provider';
 import {
   getToolsCatalogue,
+  getToolMetadataById,
   executeToolById,
   registerAgentInRuntime,
   unregisterAgentInRuntime,
 } from './internal-api';
 
 // ── Browser Agent (local-only) ───────────────────────────────────────────────
-// @mastra/agent-browser pulls in Playwright (38 MB) — not available on Vercel.
 let browserAgent: any = undefined;
 if (!isVercel) {
   try {
@@ -114,7 +112,6 @@ if (!isVercel) {
 }
 
 // ── MCP Server ──────────────────────────────────────────────────────────────
-// The MCP server imports browserAgent, so it must also be conditionally loaded.
 let mastraMcpServer: any = undefined;
 if (!isVercel) {
   try {
@@ -125,7 +122,7 @@ if (!isVercel) {
   }
 }
 
-// ── Template Workflows ───────────────────────────────────────────────────────
+// ── Original & Template Workflows ────────────────────────────────────────────
 import { deepSearchWorkflow } from './workflows/deep-search-workflow';
 import { customerFeedbackWorkflow } from './workflows/customer-feedback-workflow';
 import { csvQuestionsWorkflow } from './workflows/csv-questions-workflow';
@@ -154,8 +151,73 @@ if (!isVercel) {
   }
 }
 
-// ── Build agent and workflow registries ───────────────────────────────────────
+// ── Canonical 46-Role Agent Catalogue & 19 Workflow Catalogue ───────────────
+import {
+  agentRegistry,
+  NonRoutableAgentError,
+} from './registry/agent-registry';
+import { skillRegistry } from './skills/index';
+import {
+  CATALOGUE_MASTRA_AGENTS,
+  executeAgentTask,
+} from './agents/catalogue-agents';
+import {
+  CATALOGUE_MASTRA_WORKFLOWS,
+  LEGACY_WORKFLOW_ALIAS_MAP,
+  executeCatalogueWorkflow,
+} from './workflows/catalogue-workflows';
+
+export {
+  skillRegistry,
+  executeAgentTask,
+  executeCatalogueWorkflow,
+  agentRegistry,
+  NonRoutableAgentError,
+};
+
+// ── Wire precomputed workflows & collaborating agents onto legacy agents ─────
+const LEGACY_AGENT_RELATIONS: Array<[any, Record<string, any>, Record<string, any>]> = [
+  [weatherAgent, { weatherWorkflow, 'WF-PRD-01': CATALOGUE_MASTRA_WORKFLOWS['WF-PRD-01'] }, { 'PRD-01': CATALOGUE_MASTRA_AGENTS['PRD-01'], 'SUP-03': CATALOGUE_MASTRA_AGENTS['SUP-03'] }],
+  [deepSearchAgent, { deepSearchWorkflow, 'WF-PRD-03': CATALOGUE_MASTRA_WORKFLOWS['WF-PRD-03'] }, { 'PRD-05': CATALOGUE_MASTRA_AGENTS['PRD-05'], 'SUP-03': CATALOGUE_MASTRA_AGENTS['SUP-03'] }],
+  [googleSheetsAgent, { googleSheetsWorkflow, 'WF-PRD-06': CATALOGUE_MASTRA_WORKFLOWS['WF-PRD-06'] }, { 'PRD-09': CATALOGUE_MASTRA_AGENTS['PRD-09'], 'SUP-03': CATALOGUE_MASTRA_AGENTS['SUP-03'] }],
+  [textToSqlAgent, { textToSqlWorkflow, 'WF-PRD-06': CATALOGUE_MASTRA_WORKFLOWS['WF-PRD-06'] }, { 'PRD-09': CATALOGUE_MASTRA_AGENTS['PRD-09'], 'OPS-01': CATALOGUE_MASTRA_AGENTS['OPS-01'] }],
+  [pdfChatAgent, { pdfChatWorkflow, 'WF-PRD-04': CATALOGUE_MASTRA_WORKFLOWS['WF-PRD-04'] }, { 'PRD-06': CATALOGUE_MASTRA_AGENTS['PRD-06'], 'SUP-03': CATALOGUE_MASTRA_AGENTS['SUP-03'] }],
+  [flashCardsAgent, { flashCardsWorkflow, 'WF-PRD-04': CATALOGUE_MASTRA_WORKFLOWS['WF-PRD-04'] }, { 'PRD-07': CATALOGUE_MASTRA_AGENTS['PRD-07'], 'PRD-06': CATALOGUE_MASTRA_AGENTS['PRD-06'] }],
+  [csvQuestionsAgent, { csvQuestionsWorkflow, 'WF-PRD-06': CATALOGUE_MASTRA_WORKFLOWS['WF-PRD-06'] }, { 'PRD-09': CATALOGUE_MASTRA_AGENTS['PRD-09'], 'SUP-03': CATALOGUE_MASTRA_AGENTS['SUP-03'] }],
+  [githubPrAgent, { githubPrWorkflow }, { 'github-repo-agent': githubRepoAgent, 'SUP-03': CATALOGUE_MASTRA_AGENTS['SUP-03'] }],
+  [githubRepoAgent, { githubPrWorkflow, deepSearchWorkflow }, { 'github-pr-agent': githubPrAgent, 'SUP-03': CATALOGUE_MASTRA_AGENTS['SUP-03'] }],
+  [docsChatbotAgent, { docsChatbotWorkflow, 'WF-PRD-04': CATALOGUE_MASTRA_WORKFLOWS['WF-PRD-04'] }, { 'PRD-06': CATALOGUE_MASTRA_AGENTS['PRD-06'], 'SUP-03': CATALOGUE_MASTRA_AGENTS['SUP-03'] }],
+  [youtubeChatAgent, { youtubeChatWorkflow, videoIdeaGenWorkflow }, { 'video-idea-gen0agent': videoIdeaGenagent, 'ENT-01': CATALOGUE_MASTRA_AGENTS['ENT-01'] }],
+  [slackAgent, { slackWorkflow, 'WF-PRD-02': CATALOGUE_MASTRA_WORKFLOWS['WF-PRD-02'] }, { 'PRD-04': CATALOGUE_MASTRA_AGENTS['PRD-04'], 'SUP-03': CATALOGUE_MASTRA_AGENTS['SUP-03'] }],
+  [customerFeedbackAgent, { customerFeedbackWorkflow, 'WF-OPS-03': CATALOGUE_MASTRA_WORKFLOWS['WF-OPS-03'] }, { 'OPS-05': CATALOGUE_MASTRA_AGENTS['OPS-05'], 'OPS-06': CATALOGUE_MASTRA_AGENTS['OPS-06'] }],
+  [mcpAgent, { mcpWorkflow, 'WF-PRD-05': CATALOGUE_MASTRA_WORKFLOWS['WF-PRD-05'] }, { 'PRD-08': CATALOGUE_MASTRA_AGENTS['PRD-08'], 'SUP-03': CATALOGUE_MASTRA_AGENTS['SUP-03'] }],
+  [gemmaAgent, { gemmaWorkflow, 'WF-PRD-01': CATALOGUE_MASTRA_WORKFLOWS['WF-PRD-01'] }, { 'PRD-01': CATALOGUE_MASTRA_AGENTS['PRD-01'], 'SUP-01': CATALOGUE_MASTRA_AGENTS['SUP-01'] }],
+  [videoIdeaGenagent, { videoIdeaGenWorkflow, 'WF-ENT-01': CATALOGUE_MASTRA_WORKFLOWS['WF-ENT-01'] }, { 'ENT-01': CATALOGUE_MASTRA_AGENTS['ENT-01'], 'ENT-02': CATALOGUE_MASTRA_AGENTS['ENT-02'], 'SUP-02': CATALOGUE_MASTRA_AGENTS['SUP-02'] }],
+  [reactNativeAgent, { 'react-native-workflow': reactNativeWorkflow }, { 'github-pr-agent': githubPrAgent, 'docs-chatbot-agent': docsChatbotAgent }],
+  [translationAgent, { docsChatbotWorkflow, 'WF-PRD-04': CATALOGUE_MASTRA_WORKFLOWS['WF-PRD-04'] }, { 'PRD-07': CATALOGUE_MASTRA_AGENTS['PRD-07'], 'SUP-03': CATALOGUE_MASTRA_AGENTS['SUP-03'] }],
+  [studioChatAgent, { 'WF-ENT-01': CATALOGUE_MASTRA_WORKFLOWS['WF-ENT-01'], 'WF-PRD-05': CATALOGUE_MASTRA_WORKFLOWS['WF-PRD-05'] }, { 'agent-builder-agent': agentBuilderAgent, 'SUP-01': CATALOGUE_MASTRA_AGENTS['SUP-01'] }],
+  [agentBuilderAgent, { 'WF-PRD-05': CATALOGUE_MASTRA_WORKFLOWS['WF-PRD-05'], mcpWorkflow }, { 'studio-chat-agent': studioChatAgent, 'SUP-01': CATALOGUE_MASTRA_AGENTS['SUP-01'] }],
+  [imageGenerationAgent, { 'image-generation-workflow': imageGenerationWorkflow, 'WF-ENT-03': CATALOGUE_MASTRA_WORKFLOWS['WF-ENT-03'] }, { 'ENT-04': CATALOGUE_MASTRA_AGENTS['ENT-04'], 'ENT-05': CATALOGUE_MASTRA_AGENTS['ENT-05'], 'SUP-02': CATALOGUE_MASTRA_AGENTS['SUP-02'] }],
+];
+
+if (browserAgent) {
+  LEGACY_AGENT_RELATIONS.push([
+    browserAgent,
+    { ...(browserWorkflow ? { browserWorkflow } : {}), deepSearchWorkflow },
+    { 'deep-search-agent': deepSearchAgent, 'PRD-05': CATALOGUE_MASTRA_AGENTS['PRD-05'] },
+  ]);
+}
+
+for (const [agent, workflowsMap, agentsMap] of LEGACY_AGENT_RELATIONS) {
+  if (agent) {
+    agent.listWorkflows = async () => workflowsMap;
+    agent.listAgents = async () => agentsMap;
+  }
+}
+
+// ── Build agent and workflow registries (46 catalogue + all original agents) ─
 const allAgents: Record<string, any> = {
+  ...CATALOGUE_MASTRA_AGENTS,
   'weather-agent': weatherAgent,
   'deep-search-agent': deepSearchAgent,
   'google-sheets-agent': googleSheetsAgent,
@@ -165,47 +227,126 @@ const allAgents: Record<string, any> = {
   'csv-questions-agent': csvQuestionsAgent,
   'github-pr-agent': githubPrAgent,
   'github-repo-agent': githubRepoAgent,
-  'github-agent': githubRepoAgent,
   'docs-chatbot-agent': docsChatbotAgent,
   'youtube-chat-agent': youtubeChatAgent,
   'slack-agent': slackAgent,
   'customer-feedback-agent': customerFeedbackAgent,
   'mcp-agent': mcpAgent,
   'gemma-agent': gemmaAgent,
-  'video-idea-gen-agent': videoIdeaGenagent,
   'video-idea-gen0agent': videoIdeaGenagent,
   'react-native-agent': reactNativeAgent,
   'translation-agent': translationAgent,
   'studio-chat-agent': studioChatAgent,
   'agent-builder-agent': agentBuilderAgent,
   'image-generation-agent': imageGenerationAgent,
-  'image-generator-agent': imageGenerationAgent,
-  'text-to-image-agent': imageGenerationAgent,
-  'qwen-image-agent': imageGenerationAgent,
 };
 
-// Conditionally include browser agent (not available on Vercel)
 if (browserAgent) {
   allAgents['browser-agent'] = browserAgent;
 }
 
-// Wrap allAgents in a dynamic proxy so any runtime lookup for custom/dynamic agents auto-provisions
+// Fast O(1) lookup index by agent ID and display name for MastraEditor stored-override resolution
+const agentsByIdAndName = new Map<string, any>();
+for (const [key, ag] of Object.entries(allAgents)) {
+  if (!ag) continue;
+  agentsByIdAndName.set(key, ag);
+  if (ag.id) agentsByIdAndName.set(ag.id, ag);
+  if (ag.name) agentsByIdAndName.set(ag.name, ag);
+}
+
+// Preserve code-defined workflows & sub-agents when MastraEditor applies stored overrides from MongoDB
+if (editor?.agent) {
+  const preserveRelations = (targetAgent: any, fallbackCodeAgent: any) => {
+    if (!targetAgent || !fallbackCodeAgent || targetAgent === fallbackCodeAgent) return targetAgent;
+    if (typeof fallbackCodeAgent.listWorkflows === 'function') {
+      const origWf = targetAgent.listWorkflows?.bind(targetAgent);
+      targetAgent.listWorkflows = async (opts?: any) => {
+        const res = origWf ? await origWf(opts) : {};
+        return res && Object.keys(res).length > 0 ? res : fallbackCodeAgent.listWorkflows(opts);
+      };
+    }
+    if (typeof fallbackCodeAgent.listAgents === 'function') {
+      const origAg = targetAgent.listAgents?.bind(targetAgent);
+      targetAgent.listAgents = async (opts?: any) => {
+        const res = origAg ? await origAg(opts) : {};
+        return res && Object.keys(res).length > 0 ? res : fallbackCodeAgent.listAgents(opts);
+      };
+    }
+    return targetAgent;
+  };
+
+  if (typeof editor.agent.applyStoredOverrides === 'function') {
+    const origApply = editor.agent.applyStoredOverrides.bind(editor.agent);
+    editor.agent.applyStoredOverrides = async (codeAgent: any, ...args: any[]) => {
+      const merged = await origApply(codeAgent, ...args);
+      return preserveRelations(merged, codeAgent);
+    };
+  }
+
+  if (typeof editor.agent.getById === 'function') {
+    const origGetById = editor.agent.getById.bind(editor.agent);
+    editor.agent.getById = async (agentId: string, ...args: any[]) => {
+      const stored = await origGetById(agentId, ...args);
+      if (stored) {
+        const matchingCodeAgent =
+          allAgents[agentId] ??
+          agentsByIdAndName.get(agentId) ??
+          (stored.name ? agentsByIdAndName.get(stored.name) : undefined);
+        if (matchingCodeAgent) {
+          preserveRelations(stored, matchingCodeAgent);
+        }
+      }
+      return stored;
+    };
+  }
+}
+
+const LEGACY_AGENT_ALIAS_MAP: Record<string, any> = {
+  weatherAgent,
+  deepSearchAgent,
+  googleSheetsAgent,
+  textToSqlAgent,
+  pdfChatAgent,
+  flashCardsAgent,
+  csvQuestionsAgent,
+  githubPrAgent,
+  githubRepoAgent,
+  'github-agent': githubRepoAgent,
+  docsChatbotAgent,
+  youtubeChatAgent,
+  slackAgent,
+  customerFeedbackAgent,
+  mcpAgent,
+  gemmaAgent,
+  videoIdeaGenagent,
+  'video-idea-gen-agent': videoIdeaGenagent,
+  reactNativeAgent,
+  translationAgent,
+  studioChatAgent,
+  agentBuilderAgent,
+  imageGenerationAgent,
+  'image-generator-agent': imageGenerationAgent,
+  'text-to-image-agent': imageGenerationAgent,
+  'qwen-image-agent': imageGenerationAgent,
+  ...(browserAgent ? { browserAgent } : {}),
+};
+
 export const dynamicAgentsRegistry: Record<string, any> = new Proxy(allAgents, {
   get(target, prop, receiver) {
     if (typeof prop === 'string') {
       if (prop in target) {
         return target[prop];
       }
-      if (prop === 'agent-builder-agent') {
-        target[prop] = agentBuilderAgent;
-        return agentBuilderAgent;
+      if (prop in LEGACY_AGENT_ALIAS_MAP) {
+        return LEGACY_AGENT_ALIAS_MAP[prop];
       }
-      if (prop === 'video-idea-gen0agent') {
-        target[prop] = videoIdeaGenagent;
-        return videoIdeaGenagent;
+      // Resolve slug or legacy alias transparently without adding duplicate keys to target
+      const resolvedManifest = agentRegistry.getBySlug(prop);
+      if (resolvedManifest && resolvedManifest.id in target) {
+        return target[resolvedManifest.id];
       }
-      // On-demand dynamic agent provisioning
-      if (prop.startsWith('custom-') || prop.startsWith('agent-') || prop.startsWith('wf-')) {
+      // Auto-provision registered custom user agents only
+      if (prop.startsWith('custom-')) {
         const dynamic = createDynamicAgent(prop);
         target[prop] = dynamic;
         return dynamic;
@@ -214,14 +355,21 @@ export const dynamicAgentsRegistry: Record<string, any> = new Proxy(allAgents, {
     return Reflect.get(target, prop, receiver);
   },
   has(target, prop) {
-    if (typeof prop === 'string' && (prop in target || prop.startsWith('custom-') || prop === 'agent-builder-agent')) {
-      return true;
+    if (typeof prop === 'string') {
+      if (prop in target || prop in LEGACY_AGENT_ALIAS_MAP) {
+        return true;
+      }
+      const resolvedManifest = agentRegistry.getBySlug(prop);
+      if (resolvedManifest && resolvedManifest.id in target) {
+        return true;
+      }
     }
     return Reflect.has(target, prop);
   },
 });
 
 const allWorkflows: Record<string, any> = {
+  ...CATALOGUE_MASTRA_WORKFLOWS,
   weatherWorkflow,
   deepSearchWorkflow,
   customerFeedbackWorkflow,
@@ -237,18 +385,57 @@ const allWorkflows: Record<string, any> = {
   textToSqlWorkflow,
   videoIdeaGenWorkflow,
   youtubeChatWorkflow,
-  'react-native-workflow': reactNativeWorkflow,
-  'image-generation-workflow': imageGenerationWorkflow,
+  reactNativeWorkflow,
   imageGenerationWorkflow,
 };
 
-// Conditionally include browser workflow (not available on Vercel)
 if (browserWorkflow) {
   allWorkflows['browserWorkflow'] = browserWorkflow;
 }
 
+const WORKFLOW_KEY_ALIAS_MAP: Record<string, any> = {
+  'image-generation-workflow': imageGenerationWorkflow,
+  imageGenerationWorkflow,
+  'react-native-workflow': reactNativeWorkflow,
+  reactNativeWorkflow,
+};
+
+export const dynamicWorkflowsRegistry: Record<string, any> = new Proxy(allWorkflows, {
+  get(target, prop, receiver) {
+    if (typeof prop === 'string') {
+      if (prop in target) {
+        return target[prop];
+      }
+      if (prop in WORKFLOW_KEY_ALIAS_MAP) {
+        return WORKFLOW_KEY_ALIAS_MAP[prop];
+      }
+      const canonicalWfId = LEGACY_WORKFLOW_ALIAS_MAP[prop];
+      if (canonicalWfId && canonicalWfId in target) {
+        return target[canonicalWfId];
+      }
+    }
+    return Reflect.get(target, prop, receiver);
+  },
+  has(target, prop) {
+    if (typeof prop === 'string') {
+      if (prop in target || prop in WORKFLOW_KEY_ALIAS_MAP) {
+        return true;
+      }
+      const canonicalWfId = LEGACY_WORKFLOW_ALIAS_MAP[prop];
+      if (canonicalWfId && canonicalWfId in target) return true;
+    }
+    return Reflect.has(target, prop);
+  },
+});
+
+// Precompiled route regular expressions for fast middleware matching
+const TOOL_EXEC_ROUTE_RE = /^\/api\/tools\/([^/?#]+)\/execute$/;
+const TOOL_DETAIL_ROUTE_RE = /^\/api\/tools\/([^/?#]+)$/;
+const AGENT_UNREGISTER_ROUTE_RE = /^\/internal\/agents\/([^/?#]+)$/;
+const AGENT_ACTION_ROUTE_RE = /^\/api\/agents\/([^/?#]+)(?:\/([^/?#]+))?/;
+
 // ── Storage ─────────────────────────────────────────────────────────────────
-const mongodbUri = process.env.MONGODB_URI || 'mongodb+srv://backend-agents:Ct1GtVObDZ3UpL0r@awas.ieqeep7.mongodb.net/';
+const mongodbUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/mastra';
 const mongoStore = new MongoDBStore({
   id: 'mastra-storage',
   uri: mongodbUri,
@@ -260,10 +447,10 @@ const mongoStore = new MongoDBStore({
 // Locally: composite storage with DuckDB for observability
 const storage: any = observabilityDomain
   ? new MastraCompositeStore({
-      id: 'composite-storage',
-      default: mongoStore,
-      domains: observabilityDomain,
-    })
+    id: 'composite-storage',
+    default: mongoStore,
+    domains: observabilityDomain,
+  })
   : mongoStore;
 
 // ── Mastra Instance ──────────────────────────────────────────────────────────
@@ -303,17 +490,23 @@ export const mastra = new Mastra({
     },
     middleware: async (c: any, next: any) => {
       try {
-        const origQuery = c.req.query.bind(c.req);
-        c.req.query = (key?: string) => {
-          if (!key) {
-            const all = origQuery() || {};
-            return { transportId: 'sse', ...all };
+        if (!c.req.query?.__patched) {
+          const origQuery = c.req.query?.bind?.(c.req);
+          if (origQuery) {
+            const patched = (key?: string) => {
+              if (!key) {
+                const all = origQuery() || {};
+                return { transportId: 'sse', ...all };
+              }
+              if (key === 'transportId') {
+                return origQuery('transportId') || 'sse';
+              }
+              return origQuery(key);
+            };
+            (patched as any).__patched = true;
+            c.req.query = patched;
           }
-          if (key === 'transportId') {
-            return origQuery('transportId') || 'sse';
-          }
-          return origQuery(key);
-        };
+        }
 
         const userId = c.req.header('x-user-id');
         const tier = c.req.header('x-user-tier');
@@ -379,7 +572,7 @@ export const mastra = new Mastra({
           return c.json(getToolsCatalogue());
         }
 
-        const toolExecMatch = reqPath.match(/^\/api\/tools\/([^/?#]+)\/execute$/);
+        const toolExecMatch = reqPath.match(TOOL_EXEC_ROUTE_RE);
         if (toolExecMatch && reqMethod === 'POST') {
           const toolId = decodeURIComponent(toolExecMatch[1]);
           const body = await c.req.json().catch(() => ({}));
@@ -388,11 +581,10 @@ export const mastra = new Mastra({
           return c.json(execResult, execResult.success ? 200 : 400);
         }
 
-        const toolDetailMatch = reqPath.match(/^\/api\/tools\/([^/?#]+)$/);
+        const toolDetailMatch = reqPath.match(TOOL_DETAIL_ROUTE_RE);
         if (toolDetailMatch && reqMethod === 'GET') {
           const toolId = decodeURIComponent(toolDetailMatch[1]);
-          const tools = getToolsCatalogue();
-          const found = tools.find((t) => t.id === toolId || t.id.toLowerCase() === toolId.toLowerCase());
+          const found = getToolMetadataById(toolId);
           if (found) {
             return c.json(found);
           }
@@ -406,22 +598,53 @@ export const mastra = new Mastra({
           return c.json(result);
         }
 
-        const unregisterMatch = reqPath.match(/^\/internal\/agents\/([^/?#]+)$/);
+        const unregisterMatch = reqPath.match(AGENT_UNREGISTER_ROUTE_RE);
         if (unregisterMatch && reqMethod === 'DELETE') {
           const agentId = decodeURIComponent(unregisterMatch[1]);
           const result = unregisterAgentInRuntime(mastra, allAgents, agentId);
           return c.json(result);
         }
 
-        // ── Dynamic agent provisioning on request ─────────────────────────────
-        const agentMatch = reqPath.match(/^\/api\/agents\/([^/?#]+)/);
+        // ── Catalogue Status Enforcement & Dynamic Agent Provisioning ─────────
+        const agentMatch = reqPath.match(AGENT_ACTION_ROUTE_RE);
         if (agentMatch) {
           const requestedAgentId = decodeURIComponent(agentMatch[1]);
-          if (requestedAgentId && typeof mastra !== 'undefined' && mastra) {
-            let exists = false;
+          const subAction = agentMatch[2];
+
+          // Enforce non-routable guard when attempting to execute a planned/scaffolded catalogue agent
+          if (
+            agentRegistry.isCatalogueAgent(requestedAgentId) &&
+            (reqMethod === 'POST' || subAction === 'generate' || subAction === 'stream')
+          ) {
             try {
-              exists = Boolean(mastra.getAgentById(requestedAgentId) || mastra.getAgent(requestedAgentId));
-            } catch { }
+              agentRegistry.assertRoutable(requestedAgentId);
+            } catch (err: any) {
+              if (err instanceof NonRoutableAgentError) {
+                return c.json(
+                  {
+                    error: err.message,
+                    code: err.code,
+                    agentId: err.agentId,
+                    status: err.status,
+                  },
+                  403
+                );
+              }
+            }
+          }
+
+          if (
+            requestedAgentId &&
+            requestedAgentId.startsWith('custom-') &&
+            typeof mastra !== 'undefined' &&
+            mastra
+          ) {
+            let exists = Boolean(allAgents[requestedAgentId]);
+            if (!exists) {
+              try {
+                exists = Boolean(mastra.getAgentById?.(requestedAgentId) || mastra.getAgent?.(requestedAgentId));
+              } catch { }
+            }
 
             if (!exists) {
               try {
@@ -431,7 +654,7 @@ export const mastra = new Mastra({
                   mastra.addAgent(dynamicAgent, requestedAgentId);
                 }
               } catch (e: any) {
-                console.warn(`[Mastra Middleware] Auto-provision note for ${requestedAgentId}:`, e.message);
+                console.warn(`[Runtime Middleware] Auto-provision note for ${requestedAgentId}:`, e.message);
               }
             }
           }
@@ -448,7 +671,7 @@ export const mastra = new Mastra({
   // ── Workspace (local-only) ──────────────────────────────────────────────
   ...(globalWorkspace ? { workspace: globalWorkspace } : {}),
 
-  workflows: allWorkflows,
+  workflows: dynamicWorkflowsRegistry,
   agents: dynamicAgentsRegistry,
 
   // ── MCP Servers (local-only) ────────────────────────────────────────────

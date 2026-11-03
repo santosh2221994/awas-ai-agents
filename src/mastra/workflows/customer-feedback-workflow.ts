@@ -1,6 +1,6 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { requestContextSchema } from '../context';
+import { requestContextSchema, commitNamedWorkflow } from '../context';
 
 // ---------------------------------------------------------------------------
 // Customer Feedback Summarization Workflow
@@ -179,4 +179,4 @@ export const customerFeedbackWorkflow = createWorkflow({
   .then(analyzeThemesStep)
   .then(generateReportStep);
 
-customerFeedbackWorkflow.commit();
+commitNamedWorkflow(customerFeedbackWorkflow, 'Customer Feedback Theme Analysis & Executive Summary');

@@ -1,9 +1,301 @@
 /**
  * tool-helper.ts
  *
- * Resilience, error boundaries, rate-limit retries, and schema inspection utilities
- * for AWAS Mastra tools.
+ * Resilience, error boundaries, rate-limit retries, permission enforcement,
+ * parameter-bound approval gates, idempotency, and schema inspection utilities
+ * for AWAS Platform tools.
  */
+
+import { createTool } from '@mastra/core/tools';
+import { z } from 'zod';
+import {
+  resolvePrincipalPermissions,
+  assertRequiredScopes,
+  PermissionDeniedError,
+} from '../services/permission-service';
+import {
+  verifyOrRequestApproval,
+  recordApprovalExecutionOutcome,
+  ApprovalRequiredError,
+  canonicalizeValue,
+} from '../services/approval-service';
+
+export type ToolActionClassification = 'read-only' | 'reversible' | 'consequential';
+
+export interface GovernedToolSpec<
+  TInputSchema extends z.ZodTypeAny = z.ZodTypeAny,
+  TOutputSchema extends z.ZodTypeAny = z.ZodTypeAny,
+> {
+  id: string;
+  description: string;
+  inputSchema: TInputSchema;
+  outputSchema: TOutputSchema;
+  requiredScopes: string[];
+  actionClassification: ToolActionClassification;
+  timeoutMs?: number;
+  retryPolicy?: RetryOptions;
+  idempotentWrite?: boolean;
+  execute: (
+    input: z.infer<TInputSchema>,
+    context: {
+      userId: string;
+      workspaceId: string;
+      projectId?: string;
+      grantedScopes: string[];
+      approvalIds: string[];
+      rawContext?: any;
+    }
+  ) => Promise<z.infer<TOutputSchema>>;
+}
+
+export interface ToolAuditEntry {
+  auditId: string;
+  toolId: string;
+  actionClassification: ToolActionClassification;
+  userId: string;
+  workspaceId: string;
+  requiredScopes: string[];
+  approvalId?: string;
+  idempotencyHit: boolean;
+  status: 'success' | 'permission_denied' | 'approval_required' | 'failed';
+  latencyMs: number;
+  timestamp: string;
+  errorCode?: string;
+}
+
+const MAX_AUDIT_ENTRIES = 1000;
+const MAX_IDEMPOTENCY_ENTRIES = 1000;
+const IDEMPOTENCY_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const toolAuditLog: ToolAuditEntry[] = [];
+const idempotencyStore = new Map<string, { result: any; timestamp: number }>();
+
+function pushAuditEntry(entry: Omit<ToolAuditEntry, 'auditId' | 'timestamp'>): void {
+  if (toolAuditLog.length >= MAX_AUDIT_ENTRIES) {
+    toolAuditLog.splice(0, 100);
+  }
+  toolAuditLog.push({
+    ...entry,
+    auditId: `aud_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+export function getToolAuditLog(): ToolAuditEntry[] {
+  return [...toolAuditLog];
+}
+
+export function clearToolAuditLog(): void {
+  toolAuditLog.length = 0;
+  idempotencyStore.clear();
+}
+
+export async function withTimeout<T>(promise: Promise<T>, timeoutMs = 15_000, toolId = 'tool'): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Execution timed out after ${timeoutMs}ms in '${toolId}'`)),
+          timeoutMs
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
+ * Creates a deterministic, permission-aware, approval-gated Mastra tool with
+ * Zod input/output validation, bounded timeout, retries, idempotency, and audit logging.
+ */
+export function createGovernedTool<
+  TInputSchema extends z.ZodTypeAny,
+  TOutputSchema extends z.ZodTypeAny,
+>(spec: GovernedToolSpec<TInputSchema, TOutputSchema>) {
+  const governedExecute = async (rawInput: any, rawContext?: any): Promise<z.infer<TOutputSchema>> => {
+      const startTime = Date.now();
+      const inputPayload =
+        rawInput && typeof rawInput === 'object' && 'context' in rawInput && Object.keys(rawInput).length === 1
+          ? rawInput.context
+          : rawInput;
+
+      // 1. Resolve permissions from trusted execution context (never from rawInput)
+      const principal = resolvePrincipalPermissions(rawContext);
+
+      // 2. Enforce required permission scopes
+      try {
+        assertRequiredScopes(principal, spec.requiredScopes, spec.id);
+      } catch (err) {
+        if (err instanceof PermissionDeniedError) {
+          pushAuditEntry({
+            toolId: spec.id,
+            actionClassification: spec.actionClassification,
+            userId: principal.userId,
+            workspaceId: principal.workspaceId,
+            requiredScopes: spec.requiredScopes,
+            idempotencyHit: false,
+            status: 'permission_denied',
+            latencyMs: Date.now() - startTime,
+            errorCode: err.code,
+          });
+        }
+        throw err;
+      }
+
+      // 3. Validate input with Zod
+      const validatedInput = spec.inputSchema.parse(inputPayload ?? {});
+
+      // 4. Enforce human approval gate for consequential actions
+      let verifiedApprovalId: string | undefined;
+      if (spec.actionClassification === 'consequential') {
+        try {
+          const approvalRecord = verifyOrRequestApproval({
+            requesterId: principal.userId,
+            workspaceId: principal.workspaceId,
+            action: spec.id,
+            toolId: spec.id,
+            parameters: validatedInput as Record<string, any>,
+            suppliedApprovalIds: principal.approvalIds,
+          });
+          verifiedApprovalId = approvalRecord.approvalId;
+        } catch (err) {
+          if (err instanceof ApprovalRequiredError) {
+            pushAuditEntry({
+              toolId: spec.id,
+              actionClassification: spec.actionClassification,
+              userId: principal.userId,
+              workspaceId: principal.workspaceId,
+              requiredScopes: spec.requiredScopes,
+              approvalId: err.approvalId,
+              idempotencyHit: false,
+              status: 'approval_required',
+              latencyMs: Date.now() - startTime,
+              errorCode: err.code,
+            });
+          }
+          throw err;
+        }
+      }
+
+      // 5. Idempotency check for write operations
+      const isWrite = spec.actionClassification !== 'read-only' && (spec.idempotentWrite ?? true);
+      const idempotencyKey = isWrite
+        ? `${spec.id}::${principal.userId}::${principal.workspaceId}::${JSON.stringify(canonicalizeValue(validatedInput))}`
+        : undefined;
+
+      if (idempotencyKey && idempotencyStore.has(idempotencyKey)) {
+        const cached = idempotencyStore.get(idempotencyKey)!;
+        if (Date.now() - cached.timestamp < IDEMPOTENCY_TTL_MS) {
+          pushAuditEntry({
+            toolId: spec.id,
+            actionClassification: spec.actionClassification,
+            userId: principal.userId,
+            workspaceId: principal.workspaceId,
+            requiredScopes: spec.requiredScopes,
+            approvalId: verifiedApprovalId,
+            idempotencyHit: true,
+            status: 'success',
+            latencyMs: Date.now() - startTime,
+          });
+          return cached.result;
+        }
+        idempotencyStore.delete(idempotencyKey);
+      }
+
+      // 6. Execute with bounded timeout and retry policy
+      try {
+        const rawOutput = await withRetry(
+          () =>
+            withTimeout(
+              spec.execute(validatedInput, {
+                userId: principal.userId,
+                workspaceId: principal.workspaceId,
+                projectId: principal.projectId,
+                grantedScopes: principal.grantedScopes,
+                approvalIds: principal.approvalIds,
+                rawContext,
+              }),
+              spec.timeoutMs ?? 15_000,
+              spec.id
+            ),
+          spec.retryPolicy ?? { maxRetries: 2, initialDelayMs: 150 }
+        );
+
+        const validatedOutput = spec.outputSchema.parse(rawOutput);
+
+        if (idempotencyKey) {
+          if (idempotencyStore.size >= MAX_IDEMPOTENCY_ENTRIES) {
+            const oldestKey = idempotencyStore.keys().next().value;
+            if (oldestKey !== undefined) idempotencyStore.delete(oldestKey);
+          }
+          idempotencyStore.set(idempotencyKey, {
+            result: validatedOutput,
+            timestamp: Date.now(),
+          });
+        }
+
+        if (verifiedApprovalId) {
+          recordApprovalExecutionOutcome(verifiedApprovalId, {
+            status: 'success',
+            summary: `Executed '${spec.id}' successfully`,
+          });
+        }
+
+        pushAuditEntry({
+          toolId: spec.id,
+          actionClassification: spec.actionClassification,
+          userId: principal.userId,
+          workspaceId: principal.workspaceId,
+          requiredScopes: spec.requiredScopes,
+          approvalId: verifiedApprovalId,
+          idempotencyHit: false,
+          status: 'success',
+          latencyMs: Date.now() - startTime,
+        });
+
+        return validatedOutput;
+      } catch (err: any) {
+        if (verifiedApprovalId) {
+          recordApprovalExecutionOutcome(verifiedApprovalId, {
+            status: 'failed',
+            summary: err?.message || 'Execution failed',
+          });
+        }
+        pushAuditEntry({
+          toolId: spec.id,
+          actionClassification: spec.actionClassification,
+          userId: principal.userId,
+          workspaceId: principal.workspaceId,
+          requiredScopes: spec.requiredScopes,
+          approvalId: verifiedApprovalId,
+          idempotencyHit: false,
+          status: 'failed',
+          latencyMs: Date.now() - startTime,
+          errorCode: err?.code || 'TOOL_EXECUTION_ERROR',
+        });
+        throw err;
+      }
+  };
+
+  const baseTool = createTool({
+    id: spec.id,
+    description: spec.description,
+    inputSchema: spec.inputSchema as any,
+    outputSchema: spec.outputSchema as any,
+    execute: governedExecute as any,
+  });
+
+  // Attach governance metadata and unstripped execute wrapper directly onto the tool instance
+  return Object.assign(baseTool, {
+    execute: governedExecute,
+    requiredScopes: spec.requiredScopes,
+    actionClassification: spec.actionClassification,
+    idempotentWrite: spec.idempotentWrite ?? spec.actionClassification !== 'read-only',
+    timeoutMs: spec.timeoutMs ?? 15_000,
+  });
+}
 
 export interface RetryOptions {
   maxRetries?: number;

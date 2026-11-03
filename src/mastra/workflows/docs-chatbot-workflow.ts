@@ -1,6 +1,6 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { requestContextSchema } from '../context';
+import { requestContextSchema, commitNamedWorkflow } from '../context';
 
 const fetchDocsStep = createStep({
   id: 'fetch-docs',
@@ -95,4 +95,4 @@ export const docsChatbotWorkflow = createWorkflow({
   .then(findRelevantStep)
   .then(answerStep);
 
-docsChatbotWorkflow.commit();
+commitNamedWorkflow(docsChatbotWorkflow, 'Documentation Retrieval & Cited Question Answering');

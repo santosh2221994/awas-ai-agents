@@ -50,6 +50,75 @@ export const GLOBAL_AGENT_CONFIG: AgentGlobalConfig = {
 };
 
 /**
+ * Centralized Model Profiles referenced by AgentManifest.modelProfile.
+ * Maps abstract profile keys to environment-configurable model identifiers
+ * without embedding provider secrets or hard-coding models into agent files.
+ */
+export interface ModelProfileDefinition {
+  id: string;
+  description: string;
+  cloudModel: string;
+  localModel: string;
+  temperature: number;
+  maxTokens: number;
+}
+
+export const MODEL_PROFILES: Record<string, ModelProfileDefinition> = {
+  'creative-default': {
+    id: 'creative-default',
+    description: 'High-creativity profile for story, screenplay, visual, and marketing ideation',
+    cloudModel: process.env.PROFILE_CREATIVE_CLOUD_MODEL || GLOBAL_AGENT_CONFIG.geminiModelId,
+    localModel: process.env.PROFILE_CREATIVE_LOCAL_MODEL || GLOBAL_AGENT_CONFIG.lmStudioModelId,
+    temperature: 0.7,
+    maxTokens: 8192,
+  },
+  'analytical-default': {
+    id: 'analytical-default',
+    description: 'Deterministic analytical profile for script breakdown, finance, KPIs, and data intelligence',
+    cloudModel: process.env.PROFILE_ANALYTICAL_CLOUD_MODEL || GLOBAL_AGENT_CONFIG.geminiModelId,
+    localModel: process.env.PROFILE_ANALYTICAL_LOCAL_MODEL || GLOBAL_AGENT_CONFIG.lmStudioModelId,
+    temperature: 0.2,
+    maxTokens: 8192,
+  },
+  'fast-triage': {
+    id: 'fast-triage',
+    description: 'Low-latency profile for inbox classification, reminders, and status checks',
+    cloudModel: process.env.PROFILE_FAST_CLOUD_MODEL || GLOBAL_AGENT_CONFIG.groqModelId,
+    localModel: process.env.PROFILE_FAST_LOCAL_MODEL || GLOBAL_AGENT_CONFIG.lmStudioModelId,
+    temperature: 0.1,
+    maxTokens: 4096,
+  },
+  'deep-research': {
+    id: 'deep-research',
+    description: 'Long-context reasoning profile for multi-source synthesis and document intelligence',
+    cloudModel: process.env.PROFILE_RESEARCH_CLOUD_MODEL || GLOBAL_AGENT_CONFIG.geminiModelId,
+    localModel: process.env.PROFILE_RESEARCH_LOCAL_MODEL || GLOBAL_AGENT_CONFIG.lmStudioModelId,
+    temperature: 0.3,
+    maxTokens: 16384,
+  },
+  'supervisor-routing': {
+    id: 'supervisor-routing',
+    description: 'Structured intent decomposition and multi-agent coordination profile for supervisors',
+    cloudModel: process.env.PROFILE_SUPERVISOR_CLOUD_MODEL || GLOBAL_AGENT_CONFIG.geminiModelId,
+    localModel: process.env.PROFILE_SUPERVISOR_LOCAL_MODEL || GLOBAL_AGENT_CONFIG.lmStudioModelId,
+    temperature: 0.1,
+    maxTokens: 8192,
+  },
+  'compliance-strict': {
+    id: 'compliance-strict',
+    description: 'Zero-hallucination profile for policy checks, compliance, and continuity verification',
+    cloudModel: process.env.PROFILE_COMPLIANCE_CLOUD_MODEL || GLOBAL_AGENT_CONFIG.geminiModelId,
+    localModel: process.env.PROFILE_COMPLIANCE_LOCAL_MODEL || GLOBAL_AGENT_CONFIG.lmStudioModelId,
+    temperature: 0.0,
+    maxTokens: 8192,
+  },
+};
+
+export function getModelProfile(profileKey: string): ModelProfileDefinition | undefined {
+  return MODEL_PROFILES[profileKey];
+}
+
+/**
  * Resolves the language model for an agent based on incoming requestContext,
  * execution mode ('cloud' vs 'local'), user subscription tier, and provider configuration.
  *
@@ -82,6 +151,13 @@ export function resolveAgentModel(modelOverride?: string, context?: any): any {
   const contextBaseUrl = getCtxField('llm-base-url');
   const contextExecutionMode = getCtxField('execution-mode')?.toLowerCase();
   const contextTier = getCtxField('user-tier')?.toLowerCase();
+
+  // Map abstract modelProfile key (e.g. 'creative-default') to concrete model ID
+  const profileDef = modelOverride ? MODEL_PROFILES[modelOverride] : undefined;
+  const resolvedOverride = profileDef
+    ? (contextExecutionMode === 'local' ? profileDef.localModel : profileDef.cloudModel)
+    : modelOverride;
+  modelOverride = resolvedOverride;
 
   // ── 1. Explicit Provider in Request Context ──────────────────────────────────
   if (contextProvider) {

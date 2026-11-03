@@ -1,6 +1,6 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { requestContextSchema } from '../context';
+import { requestContextSchema, commitNamedWorkflow } from '../context';
 
 const researchTrendsStep = createStep({
   id: 'research-trends',
@@ -121,4 +121,4 @@ export const videoIdeaGenWorkflow = createWorkflow({
   .then(generateIdeasStep)
   .then(formatJsonStep);
 
-videoIdeaGenWorkflow.commit();
+commitNamedWorkflow(videoIdeaGenWorkflow, 'Trend Research & High-Virality Video Idea Generator');

@@ -45,7 +45,9 @@ import {
   listImageModelsTool,
 } from '../tools/image-generation-tool';
 
-// ── Agents ────────────────────────────────────────────────────────────────────
+// ── Canonical & Legacy Agents / Workflows ────────────────────────────────────
+import { CATALOGUE_MASTRA_AGENTS } from '../agents/catalogue-agents';
+import { CATALOGUE_MASTRA_WORKFLOWS } from '../workflows/catalogue-workflows';
 import { deepSearchAgent } from '../agents/deep-search-agent';
 import { browserAgent } from '../agents/browser-agent';
 import { githubPrAgent } from '../agents/github-pr-agent';
@@ -62,7 +64,6 @@ import { weatherAgent } from '../agents/weather-agent';
 import { gemmaAgent } from '../agents/gemma-agent';
 import { imageGenerationAgent } from '../agents/image-generation-agent';
 
-// ── Workflows ─────────────────────────────────────────────────────────────────
 import { deepSearchWorkflow } from '../workflows/deep-search-workflow';
 import { customerFeedbackWorkflow } from '../workflows/customer-feedback-workflow';
 import { weatherWorkflow } from '../workflows/weather-workflow';
@@ -115,8 +116,9 @@ export const mastraMcpServer = new MCPServer({
     listImageModelsTool,
   },
 
-  // ── Agents (become ask_<key> tools) ───────────────────────────────────────
+  // ── Agents (become ask_<key> tools) ────────────────────────────────────────
   agents: {
+    ...CATALOGUE_MASTRA_AGENTS,
     deepSearchAgent,
     browserAgent,
     githubPrAgent,
@@ -134,8 +136,9 @@ export const mastraMcpServer = new MCPServer({
     imageGenerationAgent,
   } as any,
 
-  // ── Workflows (become run_<key> tools) ────────────────────────────────────
+  // ── Workflows (become run_<key> tools) ─────────────────────────────────────
   workflows: {
+    ...CATALOGUE_MASTRA_WORKFLOWS,
     deepSearchWorkflow,
     customerFeedbackWorkflow,
     weatherWorkflow,

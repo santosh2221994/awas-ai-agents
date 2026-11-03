@@ -1,5 +1,6 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
+import { CATALOGUE_MANIFESTS } from '../registry/catalogue-manifests';
 
 // ---------------------------------------------------------------------------
 // Tool A: listRepositoryAgents
@@ -10,36 +11,77 @@ import { z } from 'zod';
 
 /** Shape of a single agent entry returned by the tool. */
 const AgentEntrySchema = z.object({
-  id: z.string().describe('Unique agent identifier (e.g. "github-pr-agent")'),
+  id: z.string().describe('Unique agent identifier (e.g. "ENT-02" or "github-pr-agent")'),
+  slug: z.string().optional().describe('Stable agent slug'),
   name: z.string().describe('Human-readable display name'),
+  domain: z.string().optional().describe('Domain vertical (entertainment, productivity, marketing, operations, supervisor)'),
+  status: z.string().optional().describe('Lifecycle status (planned, scaffolded, active, deprecated)'),
   description: z.string().describe('Short summary of the agent\'s role'),
   tools: z.array(z.string()).describe('List of tool IDs registered on this agent'),
-  model: z.string().optional().describe('LLM model identifier if known'),
-  tags: z.array(z.string()).describe('Capability tags inferred from the agent description'),
+  skills: z.array(z.string()).optional().describe('List of reusable skill IDs registered on this agent'),
+  model: z.string().optional().describe('Model profile or LLM model identifier'),
+  tags: z.array(z.string()).describe('Capability tags'),
 });
 
 export type AgentEntry = z.infer<typeof AgentEntrySchema>;
 
+const TAG_KEYWORDS_MAP: ReadonlyArray<readonly [string, readonly string[]]> = [
+  ['search', ['search', 'exa', 'web', 'research']],
+  ['document', ['pdf', 'document', 'doc', 'read']],
+  ['database', ['sql', 'database', 'db', 'query']],
+  ['communication', ['slack', 'notify', 'message', 'email']],
+  ['code', ['github', 'pr', 'code', 'react', 'native']],
+  ['data', ['csv', 'sheet', 'spreadsheet', 'data']],
+  ['video', ['youtube', 'video', 'transcript']],
+  ['translation', ['translat', 'language', 'locale']],
+  ['ai', ['gemma', 'flash', 'llm', 'model']],
+  ['browser', ['browser', 'playwright', 'scrape', 'web']],
+  ['workflow', ['workflow', 'canvas', 'dag', 'studio', 'co-pilot']],
+  ['mcp', ['mcp', 'protocol', 'tool-call']],
+];
+
+// Precompute canonical ID, slug, and legacy-alias set once at module load
+const SEEN_CATALOGUE_AGENT_IDS = new Set<string>();
+for (const m of CATALOGUE_MANIFESTS) {
+  SEEN_CATALOGUE_AGENT_IDS.add(m.id);
+  SEEN_CATALOGUE_AGENT_IDS.add(m.slug);
+  for (const alias of m.legacyAliases ?? []) {
+    SEEN_CATALOGUE_AGENT_IDS.add(alias);
+  }
+}
+
+// Precompute immutable catalogue entries once at module load to avoid per-call allocations
+const PRECOMPUTED_CATALOGUE_ENTRIES_DETAILED: AgentEntry[] = CATALOGUE_MANIFESTS.map((m) => ({
+  id: m.id,
+  slug: m.slug,
+  name: m.name,
+  domain: m.domain,
+  status: m.status,
+  description: m.description,
+  tools: m.tools,
+  skills: m.skills,
+  model: m.modelProfile,
+  tags: m.tags,
+}));
+
+const PRECOMPUTED_CATALOGUE_ENTRIES_BRIEF: AgentEntry[] = CATALOGUE_MANIFESTS.map((m) => ({
+  id: m.id,
+  slug: m.slug,
+  name: m.name,
+  domain: m.domain,
+  status: m.status,
+  description: m.description,
+  tools: [],
+  skills: [],
+  model: m.modelProfile,
+  tags: [],
+}));
+
 /** Extract simple capability tags from a raw description string. */
 function inferTags(description: string): string[] {
-  const tagMap: Record<string, string[]> = {
-    search: ['search', 'exa', 'web', 'research'],
-    document: ['pdf', 'document', 'doc', 'read'],
-    database: ['sql', 'database', 'db', 'query'],
-    communication: ['slack', 'notify', 'message', 'email'],
-    code: ['github', 'pr', 'code', 'react', 'native'],
-    data: ['csv', 'sheet', 'spreadsheet', 'data'],
-    video: ['youtube', 'video', 'transcript'],
-    translation: ['translat', 'language', 'locale'],
-    ai: ['gemma', 'flash', 'llm', 'model'],
-    browser: ['browser', 'playwright', 'scrape', 'web'],
-    workflow: ['workflow', 'canvas', 'dag', 'studio', 'co-pilot'],
-    mcp: ['mcp', 'protocol', 'tool-call'],
-  };
-
   const lower = description.toLowerCase();
   const found: string[] = [];
-  for (const [tag, keywords] of Object.entries(tagMap)) {
+  for (const [tag, keywords] of TAG_KEYWORDS_MAP) {
     if (keywords.some((kw) => lower.includes(kw))) {
       found.push(tag);
     }
@@ -75,136 +117,36 @@ export const listRepositoryAgentsTool = createTool({
   execute: async (input, context) => {
     // Pull agent registry from Mastra context
     const mastraInstance: any = (context as any)?.mastra ?? (context as any)?.container?.mastra;
+    const rawAgents: Record<string, any> = mastraInstance?.agents ?? {};
 
-    let rawAgents: Record<string, any> = {};
-    if (mastraInstance?.agents) {
-      rawAgents = mastraInstance.agents;
-    } else {
-      // Graceful fallback: reflect the static known registry so the agent is
-      // never left empty-handed even without a live Mastra context.
-      rawAgents = {
-        'weather-agent': {
-          name: 'Weather Agent',
-          description: 'Fetches real-time weather forecasts and conditions.',
-          tools: ['weather-tool'],
-        },
-        'deep-search-agent': {
-          name: 'Deep Search Agent',
-          description: 'Performs multi-step web research using Exa search.',
-          tools: ['exa-search', 'exa-scrape-page'],
-        },
-        'google-sheets-agent': {
-          name: 'Google Sheets Agent',
-          description: 'Reads and writes data in Google Sheets spreadsheets.',
-          tools: ['google-sheets-tool'],
-        },
-        'text-to-sql-agent': {
-          name: 'Text-to-SQL Agent',
-          description: 'Translates natural language questions into SQL database queries.',
-          tools: ['sql-tool'],
-        },
-        'pdf-chat-agent': {
-          name: 'PDF Chat Agent',
-          description: 'Answers questions about uploaded PDF documents.',
-          tools: ['pdf-tool'],
-        },
-        'flash-cards-agent': {
-          name: 'Flash Cards Agent',
-          description: 'Generates study flash cards from provided content.',
-          tools: [],
-        },
-        'csv-questions-agent': {
-          name: 'CSV Questions Agent',
-          description: 'Parses and answers questions from CSV data files.',
-          tools: ['csv-tool'],
-        },
-        'github-pr-agent': {
-          name: 'GitHub PR Agent',
-          description: 'Reviews GitHub pull requests, summarises changes, and suggests improvements.',
-          tools: ['github-tool'],
-        },
-        'docs-chatbot-agent': {
-          name: 'Docs Chatbot Agent',
-          description: 'Answers questions from documentation corpora.',
-          tools: [],
-        },
-        'youtube-chat-agent': {
-          name: 'YouTube Chat Agent',
-          description: 'Fetches YouTube transcripts and answers questions about video content.',
-          tools: ['youtube-tool'],
-        },
-        'slack-agent': {
-          name: 'Slack Agent',
-          description: 'Sends messages and notifications to Slack channels.',
-          tools: ['slack-tool'],
-        },
-        'customer-feedback-agent': {
-          name: 'Customer Feedback Agent',
-          description: 'Analyses and classifies customer feedback sentiment.',
-          tools: [],
-        },
-        'mcp-agent': {
-          name: 'MCP Agent',
-          description: 'General-purpose agent that connects to external tools via the MCP protocol.',
-          tools: ['mcp'],
-        },
-        'gemma-agent': {
-          name: 'Gemma Agent',
-          description: 'Runs inference using Google Gemma open-weight LLMs.',
-          tools: [],
-        },
-        'video-idea-gen-agent': {
-          name: 'Video Idea Gen Agent',
-          description: 'Generates creative video concepts and scripts.',
-          tools: [],
-        },
-        'react-native-agent': {
-          name: 'React Native Agent',
-          description: 'Assists with React Native mobile app development questions.',
-          tools: [],
-        },
-        'translation-agent': {
-          name: 'Translation Agent',
-          description: 'Translates text between multiple languages.',
-          tools: [],
-        },
-        'studio-chat-agent': {
-          name: 'Studio Chat Co-Pilot Agent',
-          description:
-            'AI-assisted Studio Co-Pilot for AWAS canvas and agent editor. Assists users with system prompt drafting, tool selection, model tuning, node configurations, parameter mapping, and workflow auto-wiring.',
-          tools: ['skill_list', 'exa-search'],
-        },
-        'browser-agent': {
-          name: 'Browser Agent',
-          description: 'Controls a headless Playwright browser for web automation and scraping.',
-          tools: ['browser-tool'],
-        },
-        'image-generation-agent': {
-          name: 'Image Generation Agent',
-          description:
-            'Generates high-fidelity images using qwen-image-2.1-turbo-uncensored and other state-of-the-art text-to-image models (FLUX, SD 3.5, SDXL, DALL-E 3, Imagen 3). Features visual prompt enhancement, uncensored creative freedom, and multi-model synthesis.',
-          tools: ['generate-image', 'enhance-image-prompt', 'list-image-models'],
-        },
-      };
-    }
+    // Canonical 46-role AgentRegistry catalogue (single source of truth, precomputed)
+    const catalogueEntries = input.includeDetails
+      ? PRECOMPUTED_CATALOGUE_ENTRIES_DETAILED
+      : PRECOMPUTED_CATALOGUE_ENTRIES_BRIEF;
 
-    // Normalise and enrich each entry
-    const allEntries: AgentEntry[] = Object.entries(rawAgents).map(([id, agent]) => {
-      const description: string = agent?.description ?? agent?._def?.description ?? '';
-      const toolIds: string[] = input.includeDetails
-        ? Object.keys(agent?.tools ?? {})
-        : [];
-      const tags: string[] = input.includeDetails ? inferTags(description) : [];
+    // Include only genuine custom user-provisioned agents that do not duplicate catalogue roles
+    const customEntries: AgentEntry[] = Object.entries(rawAgents)
+      .filter(([id, agent]) => !SEEN_CATALOGUE_AGENT_IDS.has(id) && !SEEN_CATALOGUE_AGENT_IDS.has(agent?.id))
+      .map(([id, agent]) => {
+        const description: string = agent?.description ?? agent?._def?.description ?? '';
+        const toolIds: string[] = input.includeDetails
+          ? Array.isArray(agent?.tools)
+            ? agent.tools
+            : Object.keys(agent?.tools ?? {})
+          : [];
+        const tags: string[] = input.includeDetails ? inferTags(description) : [];
 
-      return {
-        id,
-        name: agent?.name ?? id,
-        description,
-        tools: toolIds,
-        model: agent?.model?.modelId ?? agent?.model?.id ?? undefined,
-        tags,
-      };
-    });
+        return {
+          id,
+          name: agent?.name ?? id,
+          description,
+          tools: toolIds,
+          model: agent?.model?.modelId ?? agent?.model?.id ?? undefined,
+          tags,
+        };
+      });
+
+    const allEntries: AgentEntry[] = [...catalogueEntries, ...customEntries];
 
     // Optional tag filter
     const filtered = input.filterByTag

@@ -1,6 +1,6 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { requestContextSchema } from '../context';
+import { requestContextSchema, commitNamedWorkflow } from '../context';
 
 const loadPdfStep = createStep({
   id: 'load-pdf',
@@ -99,4 +99,4 @@ export const flashCardsWorkflow = createWorkflow({
   .then(extractConceptsStep)
   .then(generateCardsStep);
 
-flashCardsWorkflow.commit();
+commitNamedWorkflow(flashCardsWorkflow, 'PDF Concept Extraction & Study Flashcard Generator');

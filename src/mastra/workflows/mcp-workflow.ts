@@ -1,6 +1,6 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { requestContextSchema } from '../context';
+import { requestContextSchema, commitNamedWorkflow } from '../context';
 
 const planTaskStep = createStep({
   id: 'plan-task',
@@ -101,4 +101,4 @@ export const mcpWorkflow = createWorkflow({
   .then(executeStepsStep)
   .then(summarizeResultStep);
 
-mcpWorkflow.commit();
+commitNamedWorkflow(mcpWorkflow, 'Sequential Task Planning & MCP Filesystem Execution');

@@ -1,6 +1,6 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { requestContextSchema } from '../context';
+import { requestContextSchema, commitNamedWorkflow } from '../context';
 
 const preparePromptStep = createStep({
   id: 'prepare-prompt',
@@ -98,4 +98,4 @@ export const gemmaWorkflow = createWorkflow({
   .then(callGemmaStep)
   .then(formatResponseStep);
 
-gemmaWorkflow.commit();
+commitNamedWorkflow(gemmaWorkflow, 'Local Gemma Prompt Execution & Response Formatting');

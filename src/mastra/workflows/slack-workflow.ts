@@ -1,6 +1,6 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { requestContextSchema } from '../context';
+import { requestContextSchema, commitNamedWorkflow } from '../context';
 
 const readChannelsStep = createStep({
   id: 'read-channels',
@@ -104,4 +104,4 @@ export const slackWorkflow = createWorkflow({
   .then(summarizeActivityStep)
   .then(sendMessageStep);
 
-slackWorkflow.commit();
+commitNamedWorkflow(slackWorkflow, 'Slack Channel Activity Digest & Summary Dispatch');

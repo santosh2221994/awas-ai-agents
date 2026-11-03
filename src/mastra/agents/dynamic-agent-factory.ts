@@ -23,8 +23,10 @@ import { listRepositoryAgentsTool } from '../tools/list-repository-agents-tool';
 import { createNewAgentTool } from '../tools/create-new-agent-tool';
 import { generateCanvasWorkflowTool } from '../tools/generate-canvas-workflow-tool';
 import { generateImageTool, enhanceImagePromptTool, listImageModelsTool } from '../tools/image-generation-tool';
+import { GOVERNED_TOOLS_MAP } from '../tools/governed-tools';
 
 export const AVAILABLE_TOOLS_MAP: Record<string, any> = {
+  ...GOVERNED_TOOLS_MAP,
   // Browser tools
   browseUrlTool,
   searchWebTool,
@@ -147,10 +149,13 @@ export const AVAILABLE_TOOLS_MAP: Record<string, any> = {
   listRepositoryAgentsTool,
   createNewAgentTool,
   generateCanvasWorkflowTool,
+  'list_repository_agents': listRepositoryAgentsTool,
   'list-repository-agents': listRepositoryAgentsTool,
   'list-repository-agents-tool': listRepositoryAgentsTool,
+  'create_new_agent': createNewAgentTool,
   'create-new-agent': createNewAgentTool,
   'create-new-agent-tool': createNewAgentTool,
+  'generate_canvas_workflow': generateCanvasWorkflowTool,
   'generate-canvas-workflow': generateCanvasWorkflowTool,
   'generate-canvas-workflow-tool': generateCanvasWorkflowTool,
 
@@ -168,6 +173,37 @@ export const AVAILABLE_TOOLS_MAP: Record<string, any> = {
   'list-image-models': listImageModelsTool,
   'list-image-models-tool': listImageModelsTool,
 };
+
+// Precomputed O(1) normalized lookup map for fast tool resolution across agents & sandbox endpoints
+const NORMALIZED_TOOLS_MAP = new Map<string, any>();
+for (const [key, tool] of Object.entries(AVAILABLE_TOOLS_MAP)) {
+  const tid = tool?.id || key;
+  NORMALIZED_TOOLS_MAP.set(key.toLowerCase().replace(/[_-]/g, ''), tool);
+  NORMALIZED_TOOLS_MAP.set(String(tid).toLowerCase().replace(/[_-]/g, ''), tool);
+}
+
+export function resolveRegisteredTool(toolKey: string): any {
+  if (!toolKey) return undefined;
+  return (
+    AVAILABLE_TOOLS_MAP[toolKey] ??
+    AVAILABLE_TOOLS_MAP[toolKey.toLowerCase()] ??
+    NORMALIZED_TOOLS_MAP.get(toolKey.toLowerCase().replace(/[_-]/g, ''))
+  );
+}
+
+// Shared stateless processor & scorer singletons reused across catalogue and dynamic agents
+export const SHARED_TOOL_CALL_FILTER = new ToolCallFilter();
+export const SHARED_TOKEN_LIMITER = new TokenLimiter(getTokenLimit());
+export const SHARED_FINAL_RESPONSE_PROCESSOR = new EnsureFinalResponseProcessor(10);
+export const SHARED_USAGE_TRACKER = new UsageTrackerProcessor();
+export const SHARED_SCORERS = lightScorerConfig();
+
+const SHARED_DYNAMIC_INPUT_PROCESSORS = [
+  SHARED_TOOL_CALL_FILTER,
+  SHARED_TOKEN_LIMITER,
+  SHARED_FINAL_RESPONSE_PROCESSOR,
+];
+const SHARED_DYNAMIC_OUTPUT_PROCESSORS = [SHARED_USAGE_TRACKER];
 
 export interface DynamicAgentOptions {
   name?: string;
@@ -207,11 +243,9 @@ Your primary mission:
   if (Array.isArray(options?.tools)) {
     for (const item of options.tools) {
       const toolKey = typeof item === 'string' ? item : (item?.id || item?.name || '');
-      if (!toolKey) continue;
-      const resolved = AVAILABLE_TOOLS_MAP[toolKey] || AVAILABLE_TOOLS_MAP[toolKey.toLowerCase()];
+      const resolved = resolveRegisteredTool(toolKey);
       if (resolved) {
-        const id = resolved.id || toolKey;
-        toolsToRegister[id] = resolved;
+        toolsToRegister[resolved.id || toolKey] = resolved;
       }
     }
   } else if (options?.tools && typeof options.tools === 'object') {
@@ -236,15 +270,9 @@ Your primary mission:
 
     tools: toolsToRegister,
 
-    inputProcessors: [
-      new ToolCallFilter(),
-      new TokenLimiter(getTokenLimit()),
-      new EnsureFinalResponseProcessor(10),
-    ],
-    outputProcessors: [
-      new UsageTrackerProcessor(),
-    ],
-    scorers: lightScorerConfig(),
+    inputProcessors: SHARED_DYNAMIC_INPUT_PROCESSORS,
+    outputProcessors: SHARED_DYNAMIC_OUTPUT_PROCESSORS,
+    scorers: SHARED_SCORERS,
     options: {
       tracingPolicy: defaultTracingPolicy,
     },

@@ -1,6 +1,6 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { requestContextSchema } from '../context';
+import { requestContextSchema, commitNamedWorkflow } from '../context';
 
 const listTablesStep = createStep({
   id: 'list-tables',
@@ -123,4 +123,4 @@ export const textToSqlWorkflow = createWorkflow({
   .then(executeQueryStep)
   .then(explainResultsStep);
 
-textToSqlWorkflow.commit();
+commitNamedWorkflow(textToSqlWorkflow, 'Natural Language to SQL Execution & Result Explanation');

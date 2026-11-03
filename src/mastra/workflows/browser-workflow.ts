@@ -1,6 +1,6 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { requestContextSchema } from '../context';
+import { requestContextSchema, commitNamedWorkflow } from '../context';
 
 const navigateStep = createStep({
   id: 'navigate',
@@ -93,4 +93,4 @@ export const browserWorkflow = createWorkflow({
   .then(interactStep)
   .then(summarizeStep);
 
-browserWorkflow.commit();
+commitNamedWorkflow(browserWorkflow, 'Automated Web Navigation, Page Interaction & Summary');

@@ -1,6 +1,6 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { requestContextSchema } from '../context';
+import { requestContextSchema, commitNamedWorkflow } from '../context';
 
 // ---------------------------------------------------------------------------
 // Deep Search Workflow
@@ -226,4 +226,4 @@ export const deepSearchWorkflow = createWorkflow({
   .then(evaluateStep)
   .then(synthesizeStep);
 
-deepSearchWorkflow.commit();
+commitNamedWorkflow(deepSearchWorkflow, 'Multi-Step Web Research & Cited Answer Synthesis');

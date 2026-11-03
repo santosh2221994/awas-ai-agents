@@ -1,6 +1,6 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { requestContextSchema } from '../context';
+import { requestContextSchema, commitNamedWorkflow } from '../context';
 
 const parseCsvStep = createStep({
   id: 'parse-csv',
@@ -93,4 +93,4 @@ export const csvQuestionsWorkflow = createWorkflow({
   .then(analyzeColumnsStep)
   .then(generateQuestionsStep);
 
-csvQuestionsWorkflow.commit();
+commitNamedWorkflow(csvQuestionsWorkflow, 'CSV Column Analysis & Data-Backed Q&A Generation');

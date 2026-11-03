@@ -1,6 +1,6 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { requestContextSchema } from '../context';
+import { requestContextSchema, commitNamedWorkflow } from '../context';
 
 const fetchPrDiffStep = createStep({
   id: 'fetch-pr-diff',
@@ -114,4 +114,4 @@ export const githubPrWorkflow = createWorkflow({
   .then(reviewCodeStep)
   .then(postReviewStep);
 
-githubPrWorkflow.commit();
+commitNamedWorkflow(githubPrWorkflow, 'GitHub Pull Request Diff Analysis & Automated Code Review');

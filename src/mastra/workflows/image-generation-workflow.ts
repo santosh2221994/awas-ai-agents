@@ -1,6 +1,6 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { requestContextSchema } from '../context';
+import { requestContextSchema, commitNamedWorkflow } from '../context';
 import {
   generateImageTool,
   enhancePromptWithQwenImage,
@@ -166,3 +166,5 @@ export const imageGenerationWorkflow = createWorkflow({
 })
   .then(prepareAndEnhancePromptStep)
   .then(synthesizeImageStep);
+
+commitNamedWorkflow(imageGenerationWorkflow, 'Qwen Prompt Optimization & Multi-Model Image Synthesis');

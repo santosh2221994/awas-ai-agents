@@ -36,7 +36,7 @@ const isLocalMode =
 
 const mongodbUri =
   process.env.MONGODB_URI ||
-  'mongodb+srv://backend-agents:Ct1GtVObDZ3UpL0r@awas.ieqeep7.mongodb.net/';
+  'mongodb://127.0.0.1:27017/mastra';
 
 export const defaultMemory = new Memory({
   storage: new MongoDBStore({

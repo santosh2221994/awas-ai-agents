@@ -17,7 +17,13 @@
  *   src/mastra/workspace/skills/  ← skill definitions (committed)
  */
 
-import { Workspace, LocalFilesystem, LocalSandbox, WORKSPACE_TOOLS } from '@mastra/core/workspace';
+import {
+  Workspace,
+  LocalFilesystem,
+  LocalSandbox,
+  LocalSkillSource,
+  WORKSPACE_TOOLS,
+} from '@mastra/core/workspace';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
@@ -38,9 +44,9 @@ function resolveProjectRoot(): string {
 
 const PROJECT_ROOT = resolveProjectRoot();
 const WORKSPACE_ROOT = PROJECT_ROOT;
-const SKILLS_DIR = [
-  path.join(PROJECT_ROOT, '.agents', 'skills'),
-];
+// Relative to WORKSPACE_ROOT (without a leading "/") so LocalFilesystem & LocalSkillSource resolve inside workspace bounds
+const SKILLS_DIR = ['.agents/skills'];
+const SHARED_SKILL_SOURCE = new LocalSkillSource({ basePath: PROJECT_ROOT });
 
 // ── Global Workspace (inherited by all agents) ────────────────────────────────
 // Safe defaults: writes and commands require approval, delete is disabled.
@@ -52,6 +58,7 @@ export const globalWorkspace = new Workspace({
     workingDirectory: WORKSPACE_ROOT,
   }),
   skills: SKILLS_DIR,
+  skillSource: SHARED_SKILL_SOURCE,
   tools: {
     // Global defaults
     enabled: true,
@@ -101,6 +108,7 @@ export const codeWorkspace = new Workspace({
   }),
   lsp: false,
   skills: SKILLS_DIR,
+  skillSource: SHARED_SKILL_SOURCE,
   tools: {
     enabled: true,
     requireApproval: false,
@@ -164,6 +172,7 @@ export const readonlyWorkspace = new Workspace({
     readOnly: true,
   }),
   skills: SKILLS_DIR,
+  skillSource: SHARED_SKILL_SOURCE,
   tools: {
     enabled: true,
     requireApproval: false,
@@ -232,6 +241,7 @@ export const dynamicWorkspace = new Workspace({
   }) as any,
   lsp: false,
   skills: SKILLS_DIR,
+  skillSource: SHARED_SKILL_SOURCE,
   tools: {
     enabled: true,
     requireApproval: false,

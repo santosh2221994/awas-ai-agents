@@ -1,6 +1,6 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { requestContextSchema } from '../context';
+import { requestContextSchema, commitNamedWorkflow } from '../context';
 
 const loadPdfStep = createStep({
   id: 'load-pdf',
@@ -95,4 +95,4 @@ export const pdfChatWorkflow = createWorkflow({
   .then(searchRelevantStep)
   .then(answerWithCitationsStep);
 
-pdfChatWorkflow.commit();
+commitNamedWorkflow(pdfChatWorkflow, 'PDF Passage Search & Page-Cited Question Answering');

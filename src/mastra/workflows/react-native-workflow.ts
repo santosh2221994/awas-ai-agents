@@ -1,6 +1,6 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { requestContextSchema } from '../context';
+import { requestContextSchema, commitNamedWorkflow } from '../context';
 
 const generateCodeStep = createStep({
   id: 'generate-rn-code',
@@ -37,4 +37,4 @@ export const reactNativeWorkflow = createWorkflow({
 })
   .then(generateCodeStep);
 
-reactNativeWorkflow.commit();
+commitNamedWorkflow(reactNativeWorkflow, 'React Native Component & Screen Code Generator');

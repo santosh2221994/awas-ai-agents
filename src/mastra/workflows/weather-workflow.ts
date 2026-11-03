@@ -1,6 +1,6 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { requestContextSchema } from '../context';
+import { requestContextSchema, commitNamedWorkflow } from '../context';
 
 const forecastSchema = z.object({
   date: z.string(),
@@ -182,6 +182,6 @@ const weatherWorkflow = createWorkflow({
   .then(fetchWeather)
   .then(planActivities);
 
-weatherWorkflow.commit();
+commitNamedWorkflow(weatherWorkflow, 'City Weather Forecast & Activity Planner');
 
 export { weatherWorkflow };

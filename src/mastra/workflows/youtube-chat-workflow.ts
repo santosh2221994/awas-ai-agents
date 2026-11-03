@@ -1,6 +1,6 @@
 import { createWorkflow, createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { requestContextSchema } from '../context';
+import { requestContextSchema, commitNamedWorkflow } from '../context';
 
 const fetchMetadataStep = createStep({
   id: 'fetch-metadata',
@@ -96,4 +96,4 @@ export const youtubeChatWorkflow = createWorkflow({
   .then(getTranscriptStep)
   .then(answerQuestionsStep);
 
-youtubeChatWorkflow.commit();
+commitNamedWorkflow(youtubeChatWorkflow, 'YouTube Transcript Retrieval & Timestamp-Cited Q&A');

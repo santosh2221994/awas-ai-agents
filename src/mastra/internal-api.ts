@@ -5,8 +5,13 @@
  * and sandbox tool execution for AWAS (Agentic Workplace Automation System).
  */
 
-import { createDynamicAgent, AVAILABLE_TOOLS_MAP } from './agents/dynamic-agent-factory';
+import {
+  createDynamicAgent,
+  AVAILABLE_TOOLS_MAP,
+  resolveRegisteredTool,
+} from './agents/dynamic-agent-factory';
 import { extractZodSchemaInfo } from './tools/tool-helper';
+import { agentRegistry } from './registry/agent-registry';
 
 export interface AgentRegistrationPayload {
   id: string;
@@ -19,6 +24,8 @@ export interface AgentRegistrationPayload {
 
 /**
  * Dynamically registers an agent into the live Mastra runtime.
+ * If the id or slug matches an existing canonical catalogue agent, returns the canonical agent
+ * without creating a duplicate entry.
  */
 export function registerAgentInRuntime(
   mastraInstance: any,
@@ -28,6 +35,17 @@ export function registerAgentInRuntime(
   const { id, name, description, instructions, modelId, tools } = payload;
   if (!id) {
     throw new Error('Agent id is required for registration');
+  }
+
+  const existingManifest =
+    agentRegistry.getBySlug(id) ?? (name ? agentRegistry.getBySlug(name) : undefined);
+  if (existingManifest && allAgentsMap[existingManifest.id]) {
+    return {
+      success: true,
+      agentId: existingManifest.id,
+      message: `Agent '${id}' resolved to canonical catalogue agent '${existingManifest.id}' without duplication.`,
+      agent: allAgentsMap[existingManifest.id],
+    };
   }
 
   const newAgent = createDynamicAgent(id, {
@@ -82,7 +100,7 @@ export function unregisterAgentInRuntime(
 }
 
 /**
- * Returns an existing agent or dynamically provisions one if it's a custom agent ID.
+ * Returns an existing agent or dynamically provisions one if it's a custom agent ID or registered manifest.
  */
 export function getOrProvisionAgent(
   mastraInstance: any,
@@ -105,8 +123,27 @@ export function getOrProvisionAgent(
     } catch {}
   }
 
-  // 3. Provision on demand for custom agents or unknown agent requests
-  const provisioned = createDynamicAgent(agentId);
+  // 3. Provision on demand only for custom agents or known registry manifests
+  const isCustom = typeof agentId === 'string' && (agentId.startsWith('custom-') || agentId.startsWith('agent-custom-'));
+  const manifest = agentRegistry.getBySlug(agentId) || agentRegistry.getById(agentId);
+
+  if (!isCustom && !manifest) {
+    return undefined;
+  }
+
+  // If resolving a registry manifest, check if canonical instance already exists in allAgentsMap
+  if (manifest && allAgentsMap[manifest.id]) {
+    allAgentsMap[agentId] = allAgentsMap[manifest.id];
+    return allAgentsMap[manifest.id];
+  }
+
+  const provisioned = createDynamicAgent(agentId, manifest ? {
+    name: manifest.name,
+    description: manifest.description,
+    instructions: manifest.mission,
+    modelId: manifest.modelProfile,
+    tools: manifest.tools,
+  } : undefined);
   allAgentsMap[agentId] = provisioned;
 
   if (mastraInstance && typeof mastraInstance.addAgent === 'function') {
@@ -540,10 +577,17 @@ const TOOL_METADATA_REGISTRY: Record<string, {
   },
 };
 
+let cachedToolsCatalogue: ToolMetadata[] | null = null;
+const cachedToolsById = new Map<string, ToolMetadata>();
+
 /**
- * Returns the registered tools catalogue with full parameter schemas and sample inputs.
+ * Returns the registered tools catalogue with full parameter schemas and sample inputs (memoized).
  */
 export function getToolsCatalogue(): ToolMetadata[] {
+  if (cachedToolsCatalogue) {
+    return cachedToolsCatalogue;
+  }
+
   const uniqueTools: Record<string, ToolMetadata> = {};
 
   for (const [key, tool] of Object.entries(AVAILABLE_TOOLS_MAP)) {
@@ -563,7 +607,7 @@ export function getToolsCatalogue(): ToolMetadata[] {
 
     const parameters = extractZodSchemaInfo(tool.inputSchema);
 
-    uniqueTools[id] = {
+    const metadataEntry: ToolMetadata = {
       id,
       name: meta.name,
       description: tool.description || '',
@@ -574,9 +618,24 @@ export function getToolsCatalogue(): ToolMetadata[] {
       requiresCredentials: meta.requiresCredentials,
       credentialKey: meta.credentialKey,
     };
+
+    uniqueTools[id] = metadataEntry;
+    cachedToolsById.set(id, metadataEntry);
+    cachedToolsById.set(id.toLowerCase(), metadataEntry);
   }
 
-  return Object.values(uniqueTools);
+  cachedToolsCatalogue = Object.values(uniqueTools);
+  return cachedToolsCatalogue;
+}
+
+/**
+ * O(1) lookup for a single tool's metadata by ID.
+ */
+export function getToolMetadataById(toolId: string): ToolMetadata | undefined {
+  if (!cachedToolsCatalogue) {
+    getToolsCatalogue();
+  }
+  return cachedToolsById.get(toolId) ?? cachedToolsById.get(toolId.toLowerCase());
 }
 
 /**
@@ -595,17 +654,7 @@ export async function executeToolById(
   timestamp: string;
 }> {
   const startTime = Date.now();
-  let tool = AVAILABLE_TOOLS_MAP[toolId] || AVAILABLE_TOOLS_MAP[toolId.toLowerCase()];
-  if (!tool) {
-    const norm = toolId.toLowerCase().replace(/[_-]/g, '');
-    for (const [key, t] of Object.entries(AVAILABLE_TOOLS_MAP)) {
-      const tid = t?.id || key;
-      if (tid === toolId || tid.toLowerCase().replace(/[_-]/g, '') === norm) {
-        tool = t;
-        break;
-      }
-    }
-  }
+  const tool = resolveRegisteredTool(toolId);
 
   if (!tool) {
     return {
