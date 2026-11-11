@@ -2,6 +2,7 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { withErrorBoundary } from './tool-helper';
 import { generateGoogleImage } from './google-image-provider';
+import { generateComfyUIImage, isComfyUIAvailable } from './comfyui-provider';
 
 const DEFAULT_LM_STUDIO_URL =
   process.env.LM_STUDIO_BASE_URL ?? process.env.LMSTUDIO_BASE_URL ?? 'http://127.0.0.1:1234/v1';
@@ -18,6 +19,16 @@ export interface TextToImageModelInfo {
 }
 
 export const TEXT_TO_IMAGE_MODELS_CATALOG: TextToImageModelInfo[] = [
+  {
+    id: 'gemini-3.1-flash-lite-image',
+    name: 'Gemini 3.1 Flash Lite Image',
+    provider: 'Google GenAI',
+    architecture: 'gemini-native-image',
+    uncensored: false,
+    isLocal: false,
+    description: 'Ultra-fast Google GenAI 3.1 Flash Lite native image generation (uses GEMINI_API_KEY).',
+    recommendedFor: ['Ultra-fast synthesis', 'Photorealistic scenes', 'Concept art', 'Storyboards'],
+  },
   {
     id: 'gemini-3.1-flash-image',
     name: 'Gemini 3.1 Flash Image (Nano Banana 2)',
@@ -377,9 +388,38 @@ export const generateImageTool = createTool({
       finalPrompt = `${finalPrompt} [Negative: ${inputData.negativePrompt}]`;
     }
 
-    // Step 2: Generate the image with Google (Gemini image models / Imagen) using GOOGLE_API_KEY.
-    // No non-Google fallback: if Google fails, the tool throws and returns a clear error.
-    const google = await generateGoogleImage(finalPrompt.slice(0, 3800), aspectRatio, selectedModel);
+    // Step 2: Generate the image.
+    // Try local ComfyUI (http://127.0.0.1:8188) if available for Qwen/local models, otherwise fall back to Google.
+    let generatedImage: { imageUrl: string; model: string; provider: string } | null = null;
+    const preferLocalComfy =
+      selectedModel.includes('qwen-image') ||
+      selectedModel.includes('turbo') ||
+      !selectedModel ||
+      selectedModel === 'qwen-image-2.1-turbo-uncensored';
+
+    if (preferLocalComfy && (await isComfyUIAvailable())) {
+      try {
+        generatedImage = await generateComfyUIImage(finalPrompt, {
+          width,
+          height,
+          seed,
+          negativePrompt: inputData.negativePrompt,
+        });
+      } catch (comfyErr: any) {
+        console.warn('[generate-image] Local ComfyUI failed, falling back to Google:', comfyErr?.message);
+      }
+    }
+
+    if (!generatedImage) {
+      const google = await generateGoogleImage(finalPrompt.slice(0, 3800), aspectRatio, selectedModel);
+      generatedImage = {
+        imageUrl: google.imageUrl,
+        model: google.model,
+        provider: usedLocalQwen
+          ? `Google (${google.model}) + LM Studio prompt encoder`
+          : `Google (${google.model})`,
+      };
+    }
 
     const cleanAlt = inputData.prompt
       .slice(0, 70)
@@ -388,15 +428,13 @@ export const generateImageTool = createTool({
 
     return {
       success: true,
-      imageUrl: google.imageUrl,
-      markdownImage: `![${cleanAlt || 'Generated Image'}](${google.imageUrl})`,
+      imageUrl: generatedImage.imageUrl,
+      markdownImage: `![${cleanAlt || 'Generated Image'}](${generatedImage.imageUrl})`,
       originalPrompt: inputData.prompt,
       enhancedPrompt: finalPrompt,
       negativePrompt: inputData.negativePrompt,
-      model: google.model,
-      provider: usedLocalQwen
-        ? `Google (${google.model}) + LM Studio prompt encoder`
-        : `Google (${google.model})`,
+      model: generatedImage.model,
+      provider: generatedImage.provider,
       width,
       height,
       aspectRatio,

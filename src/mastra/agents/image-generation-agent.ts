@@ -16,7 +16,7 @@ Your primary mission is to create stunning, high-fidelity images from text promp
 
 ## Default & Primary Model:
 - **qwen-image-2.1-turbo-uncensored**:
-  - Provider: Local LM Studio / LM Link / Turbo Diffusion
+  - Provider: Local ComfyUI Desktop (http://127.0.0.1:8188) / Local Diffusion
   - Characteristics: High-speed uncensored creative synthesis combining visual prompt reasoning with fast turbo diffusion.
   - Recommended for: Uncensored creative art, photorealistic portraits and landscapes, complex multi-subject prompts, expressive artistic freedom.
   - **Always default to this model** unless the user explicitly requests another model or a specialized style.

@@ -18,6 +18,7 @@ const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 
 /** Ordered fallback list of Google image models tried when no explicit model works. */
 export const DEFAULT_GOOGLE_IMAGE_MODELS = [
+  'gemini-3.1-flash-lite-image',
   'gemini-3.1-flash-image',
   'gemini-2.5-flash-image',
   'gemini-3-pro-image',
@@ -63,10 +64,11 @@ export const EXT_MIME: Record<string, string> = {
   webp: 'image/webp',
 };
 
-function saveImage(base64: string, mimeType: string): { fileName: string; url: string } {
+export function saveImage(data: string | Buffer, mimeType: string): { fileName: string; url: string } {
   const ext = MIME_EXT[mimeType] || 'png';
   const fileName = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
-  fs.writeFileSync(path.join(getGeneratedImagesDir(), fileName), Buffer.from(base64, 'base64'));
+  const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data, 'base64');
+  fs.writeFileSync(path.join(getGeneratedImagesDir(), fileName), buffer);
   return { fileName, url: `${getPublicBaseUrl()}${GENERATED_IMAGES_ROUTE}/${fileName}` };
 }
 
@@ -115,8 +117,63 @@ async function callImagen(model: string, prompt: string, aspectRatio: string, ap
   return { base64: pred.bytesBase64Encoded as string, mimeType: (pred.mimeType as string) || 'image/png', revisedPrompt: undefined as string | undefined };
 }
 
+async function callGeminiInteractions(model: string, prompt: string, apiKey: string) {
+  const fullModel = model.startsWith('models/') ? model : `models/${model}`;
+  const resp = await fetch(`${GEMINI_API_BASE}/interactions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+    body: JSON.stringify({
+      model: fullModel,
+      input: prompt,
+      generation_config: {
+        temperature: 1,
+        max_output_tokens: 65536,
+        topP: 0.95,
+        thinkingLevel: 'minimal',
+        imageConfig: { imageSize: '1K' },
+      },
+      response_modalities: ['image'],
+    }),
+    signal: AbortSignal.timeout(90000),
+  });
+  const text = await resp.text();
+  if (!resp.ok) throw new Error(describeGoogleError(resp.status, text));
+  const data = JSON.parse(text);
+  let base64: string | undefined;
+  if (data?.steps) {
+    for (const step of data.steps) {
+      if (step.type === 'model_output' && Array.isArray(step.content)) {
+        for (const part of step.content) {
+          if (part.type === 'image' && (part.data || part.bytes)) {
+            base64 = part.data || part.bytes;
+            break;
+          }
+        }
+      }
+      if (base64) break;
+    }
+  }
+  if (!base64 && data?.candidates) {
+    const parts = data.candidates[0]?.content?.parts || [];
+    const imgPart = parts.find((p: any) => p?.inlineData?.data || p?.inline_data?.data);
+    if (imgPart) base64 = imgPart.inlineData?.data || imgPart.inline_data?.data;
+  }
+  if (!base64) throw new Error('no image returned by Google GenAI Interactions API');
+  return { base64, mimeType: 'image/png', revisedPrompt: undefined as string | undefined };
+}
+
 async function callGeminiImage(model: string, prompt: string, aspectRatio: string, apiKey: string) {
-  const resp = await fetch(`${GEMINI_API_BASE}/models/${model}:generateContent`, {
+  // First attempt using Google GenAI Interactions API if model is flash-lite
+  if (model.includes('flash-lite') || model.includes('interactions')) {
+    try {
+      return await callGeminiInteractions(model, prompt, apiKey);
+    } catch {
+      // Fall through to generateContent
+    }
+  }
+
+  const cleanModel = model.replace(/^models\//, '');
+  const resp = await fetch(`${GEMINI_API_BASE}/models/${cleanModel}:generateContent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
     body: JSON.stringify({
