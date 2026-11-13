@@ -90,6 +90,7 @@ import { translationAgent } from './agents/translation-agent';
 import { studioChatAgent } from './agents/studio-chat-agent';
 import { agentBuilderAgent } from './agents/agent-builder-agent';
 import { imageGenerationAgent } from './agents/image-generation-agent';
+import { creativeGeneratorAgent } from './agents/creative-generator-agent';
 import { createDynamicAgent } from './agents/dynamic-agent-factory';
 import { GENERATED_IMAGES_ROUTE, readGeneratedImage } from './tools/google-image-provider';
 import {
@@ -139,6 +140,7 @@ import { videoIdeaGenWorkflow } from './workflows/video-idea-gen-workflow';
 import { youtubeChatWorkflow } from './workflows/youtube-chat-workflow';
 import { reactNativeWorkflow } from './workflows/react-native-workflow';
 import { imageGenerationWorkflow } from './workflows/image-generation-workflow';
+import { creativeGeneratorWorkflow } from './workflows/creative-generator-workflow';
 
 // ── Browser Workflow (local-only) ────────────────────────────────────────────
 let browserWorkflow: any = undefined;
@@ -198,6 +200,7 @@ const LEGACY_AGENT_RELATIONS: Array<[any, Record<string, any>, Record<string, an
   [studioChatAgent, { 'WF-ENT-01': CATALOGUE_MASTRA_WORKFLOWS['WF-ENT-01'], 'WF-PRD-05': CATALOGUE_MASTRA_WORKFLOWS['WF-PRD-05'] }, { 'agent-builder-agent': agentBuilderAgent, 'SUP-01': CATALOGUE_MASTRA_AGENTS['SUP-01'] }],
   [agentBuilderAgent, { 'WF-PRD-05': CATALOGUE_MASTRA_WORKFLOWS['WF-PRD-05'], mcpWorkflow }, { 'studio-chat-agent': studioChatAgent, 'SUP-01': CATALOGUE_MASTRA_AGENTS['SUP-01'] }],
   [imageGenerationAgent, { 'image-generation-workflow': imageGenerationWorkflow, 'WF-ENT-03': CATALOGUE_MASTRA_WORKFLOWS['WF-ENT-03'] }, { 'ENT-04': CATALOGUE_MASTRA_AGENTS['ENT-04'], 'ENT-05': CATALOGUE_MASTRA_AGENTS['ENT-05'], 'SUP-02': CATALOGUE_MASTRA_AGENTS['SUP-02'] }],
+  [creativeGeneratorAgent, { 'creative-generator-workflow': creativeGeneratorWorkflow, imageGenerationWorkflow, videoIdeaGenWorkflow }, { 'image-generation-agent': imageGenerationAgent, 'video-idea-gen0agent': videoIdeaGenagent, 'ENT-01': CATALOGUE_MASTRA_AGENTS['ENT-01'] }],
 ];
 
 if (browserAgent) {
@@ -239,6 +242,7 @@ const allAgents: Record<string, any> = {
   'studio-chat-agent': studioChatAgent,
   'agent-builder-agent': agentBuilderAgent,
   'image-generation-agent': imageGenerationAgent,
+  'creative-generator-agent': creativeGeneratorAgent,
 };
 
 if (browserAgent) {
@@ -328,6 +332,9 @@ const LEGACY_AGENT_ALIAS_MAP: Record<string, any> = {
   'image-generator-agent': imageGenerationAgent,
   'text-to-image-agent': imageGenerationAgent,
   'qwen-image-agent': imageGenerationAgent,
+  creativeGeneratorAgent,
+  'storyboard-generator-agent': creativeGeneratorAgent,
+  'storyboard-agent': creativeGeneratorAgent,
   ...(browserAgent ? { browserAgent } : {}),
 };
 
@@ -387,6 +394,7 @@ const allWorkflows: Record<string, any> = {
   youtubeChatWorkflow,
   reactNativeWorkflow,
   imageGenerationWorkflow,
+  creativeGeneratorWorkflow,
 };
 
 if (browserWorkflow) {
@@ -398,6 +406,9 @@ const WORKFLOW_KEY_ALIAS_MAP: Record<string, any> = {
   imageGenerationWorkflow,
   'react-native-workflow': reactNativeWorkflow,
   reactNativeWorkflow,
+  'creative-generator-workflow': creativeGeneratorWorkflow,
+  'storyboard-generator-workflow': creativeGeneratorWorkflow,
+  creativeGeneratorWorkflow,
 };
 
 export const dynamicWorkflowsRegistry: Record<string, any> = new Proxy(allWorkflows, {

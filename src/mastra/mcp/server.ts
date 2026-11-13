@@ -63,11 +63,13 @@ import { textToSqlAgent } from '../agents/text-to-sql-agent';
 import { weatherAgent } from '../agents/weather-agent';
 import { gemmaAgent } from '../agents/gemma-agent';
 import { imageGenerationAgent } from '../agents/image-generation-agent';
+import { creativeGeneratorAgent } from '../agents/creative-generator-agent';
 
 import { deepSearchWorkflow } from '../workflows/deep-search-workflow';
 import { customerFeedbackWorkflow } from '../workflows/customer-feedback-workflow';
 import { weatherWorkflow } from '../workflows/weather-workflow';
 import { imageGenerationWorkflow } from '../workflows/image-generation-workflow';
+import { creativeGeneratorWorkflow } from '../workflows/creative-generator-workflow';
 
 export const mastraMcpServer = new MCPServer({
   id: 'mastra-tools-server',
@@ -134,6 +136,7 @@ export const mastraMcpServer = new MCPServer({
     weatherAgent,
     gemmaAgent,
     imageGenerationAgent,
+    creativeGeneratorAgent,
   } as any,
 
   // ── Workflows (become run_<key> tools) ─────────────────────────────────────
@@ -143,6 +146,7 @@ export const mastraMcpServer = new MCPServer({
     customerFeedbackWorkflow,
     weatherWorkflow,
     imageGenerationWorkflow,
+    creativeGeneratorWorkflow,
   } as any,
 
   resources: {
